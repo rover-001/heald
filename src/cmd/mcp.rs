@@ -277,6 +277,31 @@ fn get_tool_definitions() -> Vec<Value> {
                 "type": "object",
                 "properties": {}
             }
+        }),
+        json!({
+            "name": "heald_learn",
+            "description": "Query or record codebase features, files, functions, and workflow navigation guidance.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Feature, keyword, or function to search." },
+                    "scan": { "type": "boolean", "description": "Force rescan of codebase." },
+                    "record": { "type": "boolean", "description": "Record a new learning." },
+                    "feature": { "type": "string", "description": "Feature name when recording." },
+                    "notes": { "type": "string", "description": "Guidance or instructions when recording." }
+                }
+            }
+        }),
+        json!({
+            "name": "heald_clean",
+            "description": "Consolidate related memory documents, merge topic clusters, and prune trivial notes.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "dry_run": { "type": "boolean", "description": "Preview changes without modifying files." },
+                    "threshold": { "type": "integer", "description": "Maximum allowed active memory documents before consolidation." }
+                }
+            }
         })
     ]
 }
@@ -312,8 +337,78 @@ pub fn handle_tool_call(name: &str, args: &Value) -> Result<String, String> {
         "heald_doctor" => {
             run_doctor_checks()
         }
+        "heald_learn" => {
+            let query = args.get("query").and_then(|v| v.as_str());
+            let scan = args.get("scan").and_then(|v| v.as_bool()).unwrap_or(false);
+            let record = args.get("record").and_then(|v| v.as_bool()).unwrap_or(false);
+            let feature = args.get("feature").and_then(|v| v.as_str());
+            let notes = args.get("notes").and_then(|v| v.as_str());
+            mcp_learn(query, scan, record, feature, notes)
+        }
+        "heald_clean" => {
+            let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
+            let threshold = args.get("threshold").and_then(|v| v.as_u64()).map(|t| t as usize);
+            mcp_clean(dry_run, threshold)
+        }
         other => Err(format!("Unknown tool: {}", other)),
     }
+}
+
+fn mcp_learn(query: Option<&str>, scan: bool, record: bool, feature: Option<&str>, notes: Option<&str>) -> Result<String, String> {
+    let root = std::env::current_dir().unwrap_or_default();
+    let local_base = root.join(".heald");
+    if !local_base.exists() {
+        crate::cmd::init::run(false);
+    }
+    if record {
+        crate::cmd::learn::record_learning_workflow(&local_base, feature, &[], None, notes.unwrap_or("Learned pattern"));
+        return Ok(format!("Recorded learning for feature '{}'", feature.unwrap_or("Auto")));
+    }
+    let kb = if scan || crate::cmd::learn::load_knowledge(&local_base).is_none() {
+        let new_kb = crate::cmd::learn::scan_codebase(&root);
+        crate::cmd::learn::save_knowledge(&local_base, &new_kb);
+        new_kb
+    } else {
+        crate::cmd::learn::load_knowledge(&local_base).unwrap()
+    };
+    if let Some(q) = query {
+        let matches = crate::cmd::learn::query_knowledge(&kb, q);
+        if matches.is_empty() {
+            return Ok(format!("No learned features matching query '{}'. Available: {}", q, kb.features.iter().map(|f| f.name.as_str()).collect::<Vec<_>>().join(", ")));
+        }
+        let mut out = String::new();
+        for (feat, matched_files, _) in matches.into_iter().take(3) {
+            out.push_str(&format!("🎯 Feature: {}\nFiles to inspect:\n", feat.name));
+            for (file, syms) in matched_files {
+                out.push_str(&format!("  • `{}` ({})\n", file.path, file.layer));
+                let display_syms = if !syms.is_empty() { syms } else { file.symbols.iter().collect() };
+                for s in display_syms.into_iter().take(5) {
+                    out.push_str(&format!("    - `{}` [{}] (L{})\n", s.name, s.kind, s.line));
+                }
+            }
+            let wfs: Vec<&crate::cmd::learn::WorkflowGuide> = kb.workflows.iter().filter(|w| w.feature == feat.name).collect();
+            if !wfs.is_empty() {
+                out.push_str("Learned Workflows:\n");
+                for w in wfs {
+                    out.push_str(&format!("  - {}\n", w.guidance));
+                }
+            }
+            out.push('\n');
+        }
+        Ok(out)
+    } else {
+        let mut out = String::from("Heald Learned Feature Index:\n");
+        for feat in &kb.features {
+            let files: Vec<String> = feat.files.iter().take(3).map(|f| f.path.clone()).collect();
+            out.push_str(&format!("• {}: {}\n", feat.name, files.join(", ")));
+        }
+        Ok(out)
+    }
+}
+
+fn mcp_clean(dry_run: bool, threshold: Option<usize>) -> Result<String, String> {
+    let archived = crate::cmd::clean::run_clean(false, dry_run, false, threshold);
+    Ok(format!("Clean complete. Archived {} documents.", archived))
 }
 
 fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>) -> Result<String, String> {

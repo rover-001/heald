@@ -10,7 +10,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/built_with-Rust-orange?style=flat-square&logo=rust" alt="Built with Rust">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-0.2.0-teal?style=flat-square" alt="v0.2.0">
+  <img src="https://img.shields.io/badge/version-0.4.0-teal?style=flat-square" alt="v0.4.0">
   <img src="https://img.shields.io/badge/MCP-JSON--RPC%202.0-purple?style=flat-square" alt="Model Context Protocol">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Cross-platform">
 </p>
@@ -258,25 +258,54 @@ You can edit these files by hand, `git diff` them, review them in GitHub, or use
 
 ---
 
-## Memory Budget & Pruning
+## Memory Clustering & Auto-Clean (`heald clean`)
 
-Heald scores each memory document and drops the lowest-scored ones to fit within your token budget:
+Over time, active coding agents create dozens of micro-decisions and bugfix notes. Without consolidation, raw memory files bloat your token budget and obscure key architectural patterns.
 
-| Signal | Score |
-|---|---|
-| `tags: [pinned]` | +1000 |
-| Each day since creation | −1 (max: −100) |
-| `index.md` | Always included, never dropped |
+`heald clean` uses domain-clustering and token heuristics to:
+1. **Connect the dots & Merge related memories**: Automatically groups fragmented decisions (e.g. 20 disparate notes on calendar prefetching, recurring tasks, or OAuth tokens) into unified, authoritative architecture documents (`consolidated-calendar-and-recurring-tasks.md`, `consolidated-social-integrations-and-oauth.md`).
+2. **Prune trivial & repealed notes**: Identifies repealed scratch experiments and micro-logs (e.g. routine version bumps, typo fixes), archiving them into `.heald/memory/archive/`.
+3. **Auto-compact on finalize**: When running `heald finalize`, if active memory documents exceed 20, Heald automatically consolidates clusters to keep active context lean and fast.
 
 ```bash
-# Get context for a 4000-token budget (roughly ~16KB of text)
-heald context agents --budget 4000
+# Preview consolidation and pruning without touching files
+heald clean --dry-run
+
+# Run full memory consolidation
+heald clean
+
+# Consolidate with custom threshold
+heald clean --threshold 15
 ```
 
-The output header tells you exactly what was included and what was dropped:
+---
+
+## Codebase Learning Engine (`heald learn`)
+
+Eliminates the "agent reread loop" where agents reread dozens of files to locate where features, routes, hooks, and database functions live.
+
+`heald learn` scans TypeScript, JavaScript, React/JSX, Rust, Python, and Go codebases:
+- **Indexes symbols**: Exported functions, React hooks (`use*`), Convex mutations/queries, components, and routes with exact file paths and line numbers.
+- **Categorizes features**: Maps subsystems (e.g. Calendar, OAuth, Inbox & DM Automation, Mascot, Database) to their primary files and entry points.
+- **Learns workflows**: When an agent finishes a task via `heald finalize`, Heald auto-learns recently modified files from git diff and updates learned guidelines.
+- **Provides instant navigation**: Agents can query `heald learn <feature>` to instantly receive the exact files and functions to modify.
+
+```bash
+# Force full codebase scan and symbol indexing
+heald learn --scan
+
+# Query feature navigation and symbols
+heald learn calendar
+heald learn oauth
+heald learn inbox
+
+# Record an explicit pattern or workflow instruction
+heald learn --record --feature "OAuth" --files "src/routes/oauth.ts,src/services/auth.ts" --notes "Ensure Android intent:// fallback is preserved"
 ```
-<!-- Heald Context: Included 4/7 memory documents (Budget: 16000 chars) -->
-```
+
+In addition, `heald context agents` automatically embeds the learned navigation index directly into the agent's context prompt!
+
+---
 
 ## FAQ
 

@@ -33,5 +33,11 @@ pub fn run(summary: Option<&str>, stdin: bool) {
         std::fs::write(&log_path, content).unwrap();
     }
     
+    // 1. Auto-learn: associate modified files from this session with the summary
+    crate::cmd::learn::auto_learn_from_git(&body);
+
+    // 2. Auto-clean: if memory docs exceed threshold (20), cluster and consolidate automatically
+    crate::cmd::clean::run_clean(true, false, false, Some(20));
+
     println!("Session log finalized.");
 }

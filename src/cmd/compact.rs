@@ -21,6 +21,9 @@ pub fn run(dry_run: bool) {
     // 2. Consolidate and archive duplicate/outdated memories
     compact_memories(&local_base, &memory_dir, &archive_dir, dry_run);
 
+    // 3. Cluster and merge related memories into unified topic docs
+    crate::cmd::clean::run_clean(false, dry_run, false, Some(15));
+
     if !dry_run {
         crate::xref::rebuild_memory_index(&local_base);
         println!("Compaction complete. Memory index rebuilt.");
@@ -144,7 +147,6 @@ pub fn compact_memories(local_base: &Path, _memory_dir: &Path, archive_dir: &Pat
     }
 
     if to_archive.is_empty() {
-        println!("  - No duplicate or outdated memory docs found.");
         return;
     }
 

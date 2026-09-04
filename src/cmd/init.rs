@@ -51,12 +51,14 @@ pub fn run(global: bool) {
     let hook_text = format!(
         "\n\n## CRITICAL HEALD INSTRUCTIONS\n\
          Your universal rules and skill routing table are in `{}/AGENTS.md` — read it at the start of every session.\n\
-         You MUST run `heald context agents` ONCE as your very first tool call in a new session/conversation to load project memory.\n\
-         You MUST run `heald remember --type decision --title '...' --body '...'` to log major architectural or design decisions.\n\
-         You CAN run `heald forget <slug-or-title>` to remove a memory document if it becomes outdated or incorrect.
-         You CAN run `heald map` to see a fast repository map and cross-references.
-         You CAN run `heald blame <path>` to see which memory decisions touched a given file.
-         You MUST run `heald finalize --summary '...'` as your very last tool call before finishing the session.\n",
+         You MUST run `heald context agents` ONCE as your very first tool call in a new session/conversation to load project memory and learned code navigation.\n\
+         You CAN run `heald learn <feature-or-query>` to immediately identify which files and functions to modify WITHOUT rereading the repository.\n\
+         You MUST run `heald remember --type decision --title '...' --body '...'` ONLY when settling major architectural choices (stack, schemas, contracts). DO NOT record routine bugfixes or version bumps.\n\
+         You CAN run `heald clean` to consolidate related decisions and prune memory.\n\
+         You CAN run `heald forget <slug-or-title>` to remove a memory document if it becomes outdated or incorrect.\n\
+         You CAN run `heald map` to see a fast repository map and cross-references.\n\
+         You CAN run `heald blame <path>` to see which memory decisions touched a given file.\n\
+         You MUST run `heald finalize --summary '...'` as your very last tool call before finishing the session to record your summary and auto-learn touched files.\n",
         global_heald_path
     );
 

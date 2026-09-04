@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "heald")]
+#[command(version)]
 #[command(about = "Canonical AI coding harness rules and memory store", long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -54,6 +55,33 @@ enum Commands {
     Compact {
         #[arg(long)]
         dry_run: bool,
+    },
+    /// Consolidate related memory documents, merge topic clusters, and prune trivial notes
+    Clean {
+        #[arg(long)]
+        auto: bool,
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        force: bool,
+        #[arg(long)]
+        threshold: Option<usize>,
+    },
+    /// Self-learn and navigate codebase features, files, and functions
+    Learn {
+        query: Option<String>,
+        #[arg(long)]
+        scan: bool,
+        #[arg(long)]
+        record: bool,
+        #[arg(long)]
+        feature: Option<String>,
+        #[arg(long, value_delimiter = ',')]
+        files: Option<Vec<String>>,
+        #[arg(long)]
+        notes: Option<String>,
+        #[arg(long)]
+        json: bool,
     },
     /// Validate bundle integrity
     Doctor,
@@ -125,6 +153,12 @@ fn main() {
         }
         Commands::Finalize { summary, stdin } => cmd::finalize::run(summary.as_deref(), *stdin),
         Commands::Compact { dry_run } => cmd::compact::run(*dry_run),
+        Commands::Clean { auto, dry_run, force, threshold } => {
+            cmd::clean::run(*auto, *dry_run, *force, *threshold)
+        }
+        Commands::Learn { query, scan, record, feature, files, notes, json } => {
+            cmd::learn::run(query.as_deref(), *scan, *record, feature.as_deref(), files.as_deref(), notes.as_deref(), *json)
+        }
         Commands::Doctor => cmd::doctor::run(),
         Commands::Forget { query, yes } => cmd::forget::run(query, *yes),
         Commands::Blame { path, json } => cmd::blame::run(path, *json),

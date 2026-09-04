@@ -124,7 +124,10 @@ pub fn rebuild_memory_index(local_base: &Path) {
         body.push_str("| Title | Type | Date | Tags | Summary |\n");
         body.push_str("| :--- | :--- | :--- | :--- | :--- |\n");
 
-        for (path, doc) in &docs {
+        let total_docs = docs.len();
+        let display_limit = 25;
+
+        for (path, doc) in docs.iter().take(display_limit) {
             let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             let title = doc.frontmatter.effective_title();
             let doc_type = &doc.frontmatter.r#type;
@@ -159,6 +162,13 @@ pub fn rebuild_memory_index(local_base: &Path) {
             body.push_str(&format!(
                 "| **{}** (`{}.md`) | `{}` | {} | {} | {} |\n",
                 title_escaped, file_stem, doc_type, date, tags, snippet
+            ));
+        }
+
+        if total_docs > display_limit {
+            body.push_str(&format!(
+                "\n*(Showing {} of {} active memory documents. Run `heald clean` to consolidate related decisions into domain files.)*\n",
+                display_limit, total_docs
             ));
         }
     }

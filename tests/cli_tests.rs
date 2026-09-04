@@ -363,4 +363,88 @@ fn test_doctor_validations() {
     assert!(stdout.contains("WARNING (Orphan Reference)") || stdout.contains("warning(s)"));
 }
 
+#[test]
+fn test_clean_clustering_and_pruning() {
+    let local_base = PathBuf::from(".heald");
+    let mem_dir = local_base.join("memory");
+    fs::create_dir_all(&mem_dir).unwrap();
+
+    // Add related memories about OAuth
+    fs::write(
+        mem_dir.join("instagram-oauth-flow.md"),
+        "---\ntitle: Instagram OAuth Flow\ntimestamp: 2026-08-20T00:00:00Z\ntype: decision\n---\nConfigured Instagram OAuth token exchange in src/auth.rs.\n",
+    ).unwrap();
+
+    fs::write(
+        mem_dir.join("youtube-oauth-refresh.md"),
+        "---\ntitle: YouTube OAuth Token Refresh\ntimestamp: 2026-08-21T00:00:00Z\ntype: decision\n---\nAdded YouTube token refresh and connection status.\n",
+    ).unwrap();
+
+    // Add a trivial version bump
+    fs::write(
+        mem_dir.join("bump-app-version-103.md"),
+        "---\ntitle: App Release Version 1.0.3\ntimestamp: 2026-08-22T00:00:00Z\ntype: decision\n---\nBumped version in package.json.\n",
+    ).unwrap();
+
+    let output = Command::new(get_bin())
+        .args(&["clean", "--threshold", "2"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Merging") || stdout.contains("Archived"));
+
+    // Check that consolidated document was created
+    let consolidated = mem_dir.join("consolidated-social-integrations-and-oauth.md");
+    assert!(consolidated.exists(), "Consolidated doc should exist");
+
+    let content = fs::read_to_string(&consolidated).unwrap();
+    assert!(content.contains("Consolidated: Social Integrations & OAuth"));
+    assert!(content.contains("Instagram OAuth Flow"));
+    assert!(content.contains("YouTube OAuth Token Refresh"));
+
+    // Check archive contains original docs
+    let archive_dir = mem_dir.join("archive");
+    assert!(archive_dir.join("instagram-oauth-flow.md").exists());
+    assert!(archive_dir.join("youtube-oauth-refresh.md").exists());
+    assert!(archive_dir.join("bump-app-version-103.md").exists());
+}
+
+#[test]
+fn test_learn_scan_and_query() {
+    // Run learn --scan on current repo
+    let output_scan = Command::new(get_bin())
+        .args(&["learn", "--scan"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output_scan.status.success());
+    let stdout_scan = String::from_utf8(output_scan.stdout).unwrap();
+    assert!(stdout_scan.contains("Learned"));
+
+    // Knowledge files should exist
+    assert!(PathBuf::from(".heald/knowledge/features.json").exists());
+    assert!(PathBuf::from(".heald/knowledge/feature-map.md").exists());
+
+    // Run learn query
+    let output_query = Command::new(get_bin())
+        .args(&["learn", "clean"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output_query.status.success());
+    let stdout_query = String::from_utf8(output_query.stdout).unwrap();
+    assert!(stdout_query.contains("clean.rs") || stdout_query.contains("run_clean") || stdout_query.contains("Feature"));
+
+    // Test record workflow
+    let output_record = Command::new(get_bin())
+        .args(&["learn", "--record", "--feature", "Testing", "--notes", "Run cargo test before pushing"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output_record.status.success());
+}
+
+
 

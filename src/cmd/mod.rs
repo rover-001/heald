@@ -8,6 +8,7 @@ pub mod forget;
 pub mod map;
 pub mod blame;
 pub mod compact;
+pub mod clean;
+pub mod learn;
 pub mod skill;
 pub mod mcp;
-

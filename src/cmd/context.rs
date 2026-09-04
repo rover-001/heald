@@ -154,6 +154,38 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>) {
             println!("\n# {}\n\n{}", doc.frontmatter.r#type, doc.content);
         }
     }
+
+    // Include Learned Code Navigation Guide
+    if let Some(kb) = crate::cmd::learn::load_knowledge(&local_base) {
+        println!("\n# Learned Code Navigation & Feature Index\n");
+        if let Some(q) = query {
+            let matches = crate::cmd::learn::query_knowledge(&kb, q);
+            if !matches.is_empty() {
+                for (feat, matched_files, _) in matches.into_iter().take(2) {
+                    println!("### Feature: {}", feat.name);
+                    for (file, syms) in matched_files.into_iter().take(4) {
+                        println!("- `{}` ({})", file.path, file.layer);
+                        let top_syms = if !syms.is_empty() { syms } else { file.symbols.iter().collect() };
+                        for sym in top_syms.into_iter().take(3) {
+                            println!("  * `{}` [{}] (L{})", sym.name, sym.kind, sym.line);
+                        }
+                    }
+                    println!();
+                }
+            } else {
+                for feat in kb.features.iter().take(6) {
+                    let files: Vec<String> = feat.files.iter().take(2).map(|f| f.path.clone()).collect();
+                    println!("- **{}**: {}", feat.name, files.join(", "));
+                }
+            }
+        } else {
+            println!("*(Run `heald learn <feature>` to inspect exact functions and line numbers before modifying code)*\n");
+            for feat in kb.features.iter().take(8) {
+                let files: Vec<String> = feat.files.iter().take(3).map(|f| f.path.clone()).collect();
+                println!("- **{}**: {}", feat.name, files.join(", "));
+            }
+        }
+    }
 }
 
 fn score(doc: &Document) -> i32 {
