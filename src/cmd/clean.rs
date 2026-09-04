@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use chrono::{DateTime, Utc};
@@ -26,10 +26,10 @@ const DOMAIN_RULES: &[(&str, &[&str])] = &[
         "sync", "cloud", "tombstone", "turso", "lww", "deleted_at", "backfill", "cursor"
     ]),
     ("AI Mascot & Voice Assistant", &[
-        "mascot", "floating", "zeno", "voice", "gemini", "assistant", "ai chat", "shift_task", "intent"
+        "mascot", "floating", "zeno", "voice", "gemini", "assistant", "ai chat", "shift_task", "intent", "insights", "ai insights", "dismissal"
     ]),
     ("Social Integrations & OAuth", &[
-        "oauth", "instagram", "youtube", "pinterest", "meta", "social", "connection", "accounts", "avatar", "token"
+        "oauth", "instagram", "youtube", "pinterest", "meta", "social", "connection", "accounts", "avatar", "token", "account", "accountid", "profile", "retry", "sequence"
     ]),
     ("DM Automation & Webhooks", &[
         "inbox", "dm", "unibox", "automation", "webhook", "responder", "follower", "reply"
@@ -38,10 +38,11 @@ const DOMAIN_RULES: &[(&str, &[&str])] = &[
         "email", "imap", "smtp", "zoho", "outlook", "polling"
     ]),
     ("UI System & Theme", &[
-        "theme", "dark", "light", "white", "color", "styling", "css", "tailwind", "layout", "bottom bar", "navbar", "modal", "slider", "card", "viewfinder"
+        "theme", "dark", "light", "white", "color", "styling", "css", "tailwind", "layout", "bottom bar", "navbar", "modal", "slider", "card", "viewfinder",
+        "header", "mobile", "drawer", "picker", "icon", "icons", "border", "dropdown", "bottom sheet", "navigation", "animation", "nav", "bar", "home page", "figma", "boxes", "transparent", "logo", "screen", "rendering", "ui", "wheel", "select", "optical", "shell"
     ]),
     ("Android Mobile & Release", &[
-        "release", "keystore", "play", "signing", "bundle", "apk", "aab", "version", "proguard", "r8", "gradle", "capacitor", "intent://"
+        "release", "keystore", "play", "signing", "bundle", "apk", "aab", "version", "proguard", "r8", "gradle", "capacitor", "intent://", "android", "adb", "sync-run", "app name"
     ]),
     ("Legal & Account Compliance", &[
         "deletion", "privacy", "terms", "legal", "compliance", "herenow", "webpage"
@@ -53,7 +54,7 @@ const DOMAIN_RULES: &[(&str, &[&str])] = &[
         "content", "post", "video", "upload", "camera", "media", "editor", "viewfinder", "reel", "story", "stories"
     ]),
     ("Backend & Deployment", &[
-        "convex", "vite", "build", "compiler", "vercel", "deploy", "server", "endpoint", "api", "environment", "env"
+        "convex", "vite", "build", "compiler", "vercel", "deploy", "server", "endpoint", "api", "environment", "env", "architecture", "modular", "zustand", "store", "state management", "route", "routes", "workspace", "folder", "authentication", "auth"
     ]),
 ];
 
@@ -266,19 +267,9 @@ pub fn synthesize_cluster(
 
     let title = format!("Consolidated: {}", domain);
 
-    // Collect all referenced files
-    let mut all_files = HashSet::new();
-    for (_, doc) in &docs {
-        for path in extract_referenced_paths(&doc.content) {
-            all_files.insert(path);
-        }
-    }
-    let mut sorted_files: Vec<String> = all_files.into_iter().collect();
-    sorted_files.sort();
-
-    // Extract core decision points
-    let mut decision_points = Vec::new();
-    let mut history_entries = Vec::new();
+    let mut all_files = BTreeSet::new();
+    let mut decision_points: Vec<String> = Vec::new();
+    let mut history_entries: Vec<String> = Vec::new();
     let mut source_paths = Vec::new();
 
     for (path, doc) in &docs {
@@ -287,10 +278,42 @@ pub fn synthesize_cluster(
         let ts = doc.frontmatter.timestamp.as_deref().unwrap_or("");
         let date_str = if ts.len() >= 10 { &ts[..10] } else { ts };
 
-        // If this doc was already a consolidated doc, include its content directly
-        if doc.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated")) {
-            decision_points.push(doc.content.clone());
+        let is_consolidated = doc.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated"))
+            || d_title.starts_with("Consolidated: ");
+
+        if is_consolidated {
+            // Parse existing consolidated content, stripping duplicate headers and categorizing bullets
+            for line in doc.content.lines() {
+                let trimmed = line.trim();
+                if trimmed.is_empty()
+                    || trimmed.starts_with('#')
+                    || trimmed.starts_with("Consolidated architectural")
+                    || trimmed.starts_with("*(No detailed")
+                    || trimmed.starts_with("*(Files referenced")
+                {
+                    continue;
+                }
+                if trimmed.starts_with("- `") && trimmed.ends_with('`') {
+                    let file_str = trimmed.trim_start_matches("- `").trim_end_matches('`');
+                    if !file_str.is_empty() {
+                        all_files.insert(file_str.to_string());
+                    }
+                } else if trimmed.starts_with("- ") && (trimmed.contains(" — ") || trimmed.starts_with("- 20")) {
+                    if !history_entries.contains(&trimmed.to_string()) {
+                        history_entries.push(trimmed.to_string());
+                    }
+                } else if trimmed.starts_with("- ") {
+                    if !decision_points.contains(&trimmed.to_string()) {
+                        decision_points.push(trimmed.to_string());
+                    }
+                }
+            }
             continue;
+        }
+
+        // Collect referenced files from non-consolidated doc
+        for fpath in extract_referenced_paths(&doc.content) {
+            all_files.insert(fpath);
         }
 
         let first_line = doc
@@ -301,10 +324,21 @@ pub fn synthesize_cluster(
             .trim();
 
         if !first_line.is_empty() {
-            decision_points.push(format!("- **{}**: {}", d_title, first_line));
+            let bullet = format!("- **{}**: {}", d_title, first_line);
+            if !decision_points.contains(&bullet) {
+                decision_points.push(bullet);
+            }
         }
 
-        history_entries.push(format!("- {} — {} (`{}`)", date_str, d_title, path.file_name().unwrap_or_default().to_string_lossy()));
+        let history_bullet = format!(
+            "- {} — {} (`{}`)",
+            date_str,
+            d_title,
+            path.file_name().unwrap_or_default().to_string_lossy()
+        );
+        if !history_entries.contains(&history_bullet) {
+            history_entries.push(history_bullet);
+        }
     }
 
     let mut body = String::new();
@@ -321,27 +355,26 @@ pub fn synthesize_cluster(
         body.push_str("*(No detailed decision notes)*\n\n");
     } else {
         for p in &decision_points {
-            if p.starts_with("- ") || p.starts_with('#') {
-                body.push_str(p);
-                body.push('\n');
-            } else {
-                body.push_str(&format!("- {}\n", p));
-            }
+            body.push_str(p);
+            body.push('\n');
         }
         body.push('\n');
     }
 
     body.push_str("## Impacted Files & Subsystems\n\n");
-    if sorted_files.is_empty() {
+    if all_files.is_empty() {
         body.push_str("*(Files referenced in historical session logs)*\n\n");
     } else {
-        for f in &sorted_files {
+        for f in &all_files {
             body.push_str(&format!("- `{}`\n", f));
         }
         body.push('\n');
     }
 
-    body.push_str(&format!("## Consolidated Evolution History ({} items archived)\n\n", docs.len()));
+    body.push_str(&format!(
+        "## Consolidated Evolution History ({} items archived)\n\n",
+        history_entries.len()
+    ));
     for h in &history_entries {
         body.push_str(h);
         body.push('\n');
@@ -396,10 +429,23 @@ pub fn run_clean(auto: bool, dry_run: bool, _force: bool, threshold: Option<usiz
         archived_count += 1;
     }
 
-    // 2. Consolidate clusters that have 2 or more documents
+    // 2. Consolidate clusters that have 2 or more documents (or existing consolidated docs that need normalization)
     let mut consolidated_created = 0;
     for (domain, group) in clusters {
-        if group.len() >= 2 {
+        let is_existing_consolidated = group.iter().any(|(_, d)| {
+            d.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated"))
+                || d.frontmatter.effective_title().starts_with("Consolidated: ")
+        });
+        if group.len() >= 2 || is_existing_consolidated {
+            // If it's a single consolidated doc, only rewrite if it needs normalization (duplicate headers)
+            if group.len() == 1 {
+                let doc_content = &group[0].1.content;
+                let count = doc_content.matches("# Consolidated:").count();
+                if count <= 1 {
+                    continue;
+                }
+            }
+
             let (slug, content, source_paths) = synthesize_cluster(&domain, group);
             let consolidated_file = memory_dir.join(format!("{}.md", slug));
 
@@ -472,5 +518,70 @@ mod tests {
 
         let domain_oauth = match_domain("Instagram OAuth Callback and Tokens", "token exchange", &[]);
         assert_eq!(domain_oauth, Some("Social Integrations & OAuth"));
+
+        let domain_ui = match_domain("Increased capture logo size to 64x64px in mobile header", "", &[]);
+        assert_eq!(domain_ui, Some("UI System & Theme"));
+    }
+
+    #[test]
+    fn test_synthesize_cluster_with_existing_consolidated() {
+        let existing_content = r#"---
+title: "Consolidated: Social Integrations & OAuth"
+timestamp: 2026-08-21T00:00:00Z
+tags: [consolidated, "social-integrations-and-oauth"]
+---
+
+# Consolidated: Social Integrations & OAuth
+
+Consolidated architectural decisions, system invariants, and implementation patterns.
+
+## Core System Decisions & Invariants
+
+# Consolidated: Social Integrations & OAuth
+
+## Core System Decisions & Invariants
+
+- **YouTube OAuth Token Refresh**: Added YouTube token refresh.
+
+## Impacted Files & Subsystems
+
+- `src/auth.rs`
+
+## Consolidated Evolution History (1 items archived)
+
+- 2026-08-21 — YouTube OAuth Token Refresh (`youtube-oauth-refresh.md`)
+"#;
+        let existing_doc = Document::parse(existing_content).unwrap();
+
+        let new_content = r#"---
+title: "Instagram OAuth Flow"
+timestamp: 2026-08-22T00:00:00Z
+---
+Added Instagram OAuth login handler.
+"#;
+        let new_doc = Document::parse(new_content).unwrap();
+
+        let (slug, body, paths) = synthesize_cluster(
+            "Social Integrations & OAuth",
+            vec![
+                (PathBuf::from("consolidated-social-integrations-and-oauth.md"), existing_doc),
+                (PathBuf::from("instagram-oauth-flow.md"), new_doc),
+            ],
+        );
+
+        assert_eq!(slug, "consolidated-social-integrations-and-oauth");
+        assert_eq!(paths.len(), 2);
+
+        // Crucial: Verify NO duplicate "# Consolidated:" headers exist in synthesized body!
+        assert_eq!(body.matches("# Consolidated:").count(), 1);
+        assert_eq!(body.matches("## Core System Decisions & Invariants").count(), 1);
+        assert_eq!(body.matches("## Impacted Files & Subsystems").count(), 1);
+        assert_eq!(body.matches("## Consolidated Evolution History").count(), 1);
+
+        // Verify both decisions and history entries are present
+        assert!(body.contains("YouTube OAuth Token Refresh"));
+        assert!(body.contains("Instagram OAuth Flow"));
+        assert!(body.contains("youtube-oauth-refresh.md"));
+        assert!(body.contains("instagram-oauth-flow.md"));
     }
 }

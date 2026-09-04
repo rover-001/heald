@@ -148,10 +148,12 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>) {
         query.map(|q| format!(", Query: \"{}\"", q)).unwrap_or_default()
     );
     for doc in included {
-        if let Some(title) = &doc.frontmatter.title {
-            println!("\n# {}\n\n{}", title, doc.content);
+        let title_to_show = doc.frontmatter.title.as_deref().unwrap_or(&doc.frontmatter.r#type);
+        let trimmed = doc.content.trim_start();
+        if trimmed.starts_with(&format!("# {}", title_to_show)) || trimmed.starts_with("# ") {
+            println!("\n{}", doc.content.trim());
         } else {
-            println!("\n# {}\n\n{}", doc.frontmatter.r#type, doc.content);
+            println!("\n# {}\n\n{}", title_to_show, doc.content.trim());
         }
     }
 
