@@ -93,13 +93,11 @@ fn import_skills(global_skills_dir: &std::path::Path) {
     if let Some(home) = dirs::home_dir() {
         search_paths.push(home.join(".gemini").join("config").join("skills"));
         search_paths.push(home.join(".agents").join("skills"));
-        search_paths.push(home.join(".hermes").join("skills"));
     }
     
     // Local paths
     if let Ok(cwd) = std::env::current_dir() {
         search_paths.push(cwd.join(".agents").join("skills"));
-        search_paths.push(cwd.join(".hermes").join("skills"));
         search_paths.push(cwd.join(".cursor").join("rules"));
     }
 
