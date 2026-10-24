@@ -475,5 +475,70 @@ fn test_learn_scan_and_query() {
     assert!(output_record.status.success());
 }
 
+#[test]
+fn test_context_intent_slicing_task() {
+    let local_base = PathBuf::from(".heald");
+    let mem_dir = local_base.join("memory");
+    fs::create_dir_all(&mem_dir).unwrap();
+
+    fs::write(
+        mem_dir.join("db-intent-test.md"),
+        "---\ntitle: Database Isolation Test\ntimestamp: 2026-08-11T00:00:00Z\ntype: decision\n---\nPostgreSQL transaction isolation and query optimization.\n",
+    ).unwrap();
+
+    // Run context with --task
+    let output = Command::new(get_bin())
+        .args(["context", "agents", "--task", "PostgreSQL database transaction isolation", "--strict"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("[Intent-Sliced]"));
+    assert!(stdout.contains("Database Isolation Test"));
+    // Unrelated documents like JWT or YouTube should be omitted from the sliced body
+    assert!(!stdout.contains("# YouTube OAuth Token Refresh"));
+
+    let _ = fs::remove_file(mem_dir.join("db-intent-test.md"));
+}
+
+#[test]
+fn test_symbol_drift_detection_and_fix() {
+    let local_base = PathBuf::from(".heald");
+    let mem_dir = local_base.join("memory");
+    fs::create_dir_all(&mem_dir).unwrap();
+
+    // Create a memory doc pointing to run_clean in a wrong file src/auth.rs (run_clean is in src/cmd/clean.rs)
+    let test_file = mem_dir.join("test-drift-detect.md");
+    fs::write(
+        &test_file,
+        "---\ntitle: Test Drift Detect\ntimestamp: 2026-08-20T00:00:00Z\ntype: decision\n---\nWe invoke src/auth.rs::run_clean for maintenance.\n",
+    ).unwrap();
+
+    // Run drift detection
+    let output = Command::new(get_bin())
+        .args(["drift"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("[MOVED]"));
+    assert!(stdout.contains("run_clean"));
+    assert!(stdout.contains("src/cmd/clean.rs"));
+
+    // Run drift --fix
+    let output_fix = Command::new(get_bin())
+        .args(["drift", "--fix"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output_fix.status.success());
+    let fixed_content = fs::read_to_string(&test_file).unwrap();
+    assert!(fixed_content.contains("src/cmd/clean.rs::run_clean"));
+
+    let _ = fs::remove_file(test_file);
+}
+
 
 

@@ -30,8 +30,14 @@ enum Commands {
         budget: Option<usize>,
         #[arg(short = 'q', long = "relevant", aliases = ["query"])]
         query: Option<String>,
+        #[arg(long)]
+        task: Option<String>,
+        #[arg(long)]
+        intent: Option<String>,
         #[arg(short = 'c', long = "compact")]
         compact: bool,
+        #[arg(long, aliases = ["strict"])]
+        strict_intent: bool,
     },
     /// Append a new memory document
     Remember {
@@ -87,6 +93,13 @@ enum Commands {
     },
     /// Validate bundle integrity
     Doctor,
+    /// Detect symbol-level drift and moved/deleted functions in memory docs
+    Drift {
+        #[arg(long)]
+        fix: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Forget a memory document
     Forget {
         query: String,
@@ -149,7 +162,19 @@ fn main() {
     match &cli.command {
         Commands::Init { global } => cmd::init::run(*global),
         Commands::Sync { harness, all } => cmd::sync::run(harness.as_deref(), *all),
-        Commands::Context { harness, budget, query, compact } => cmd::context::run(harness, *budget, query.as_deref(), *compact),
+        Commands::Context {
+            harness,
+            budget,
+            query,
+            task,
+            intent,
+            compact,
+            strict_intent,
+        } => {
+            let effective_query = task.as_deref().or(intent.as_deref()).or(query.as_deref());
+            let is_intent = *strict_intent || task.is_some() || intent.is_some();
+            cmd::context::run(harness, *budget, effective_query, *compact, is_intent);
+        }
         Commands::Remember { r#type, title, body, tags, stdin } => {
             cmd::remember::run(r#type, title, body.as_deref(), tags.as_deref(), *stdin)
         }
@@ -162,6 +187,7 @@ fn main() {
             cmd::learn::run(query.as_deref(), *scan, *record, feature.as_deref(), files.as_deref(), notes.as_deref(), *json)
         }
         Commands::Doctor => cmd::doctor::run(),
+        Commands::Drift { fix, json } => cmd::drift::run(*fix, *json),
         Commands::Forget { query, yes } => cmd::forget::run(query, *yes),
         Commands::Blame { path, json } => cmd::blame::run(path, *json),
         Commands::Map => cmd::map::run(),

@@ -200,6 +200,14 @@ fn get_tool_definitions() -> Vec<Value> {
                         "type": "string",
                         "description": "Optional keyword or query to filter memories."
                     },
+                    "task": {
+                        "type": "string",
+                        "description": "Current goal or task description for intent-aware context slicing."
+                    },
+                    "intent": {
+                        "type": "string",
+                        "description": "Alternative alias for task/goal intent."
+                    },
                     "budget": {
                         "type": "integer",
                         "description": "Maximum character budget (defaults to ~32000 chars / 8000 tokens)."
@@ -207,6 +215,10 @@ fn get_tool_definitions() -> Vec<Value> {
                     "compact": {
                         "type": "boolean",
                         "description": "Return ultra-condensed token-efficient summaries instead of full document bodies."
+                    },
+                    "strict": {
+                        "type": "boolean",
+                        "description": "Strictly slice context to only matching decisions and drop unrelated documents."
                     }
                 }
             }
@@ -283,6 +295,19 @@ fn get_tool_definitions() -> Vec<Value> {
             }
         }),
         json!({
+            "name": "heald_drift",
+            "description": "Scan memory documents for drifted, moved, or deleted code symbols and functions.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "fix": {
+                        "type": "boolean",
+                        "description": "Automatically repair moved symbol references in memory docs."
+                    }
+                }
+            }
+        }),
+        json!({
             "name": "heald_learn",
             "description": "Query or record codebase features, files, functions, and workflow navigation guidance.",
             "inputSchema": {
@@ -328,9 +353,14 @@ pub fn handle_tool_call(name: &str, args: &Value) -> Result<String, String> {
     match name {
         "heald_recall" => {
             let query = args.get("query").and_then(|v| v.as_str());
+            let task = args.get("task").and_then(|v| v.as_str());
+            let intent = args.get("intent").and_then(|v| v.as_str());
             let budget = args.get("budget").and_then(|v| v.as_u64()).map(|b| b as usize);
             let compact = args.get("compact").and_then(|v| v.as_bool()).unwrap_or(false);
-            recall_memory(query, budget, compact)
+            let strict = args.get("strict").and_then(|v| v.as_bool()).unwrap_or(false);
+            let effective_query = task.or(intent).or(query);
+            let is_intent = strict || task.is_some() || intent.is_some();
+            recall_memory(effective_query, budget, compact, is_intent)
         }
         "heald_remember" => {
             let doc_type = args.get("type").and_then(|v| v.as_str()).unwrap_or("decision");
@@ -372,6 +402,10 @@ pub fn handle_tool_call(name: &str, args: &Value) -> Result<String, String> {
         "heald_finalize" => {
             let summary = args.get("summary").and_then(|v| v.as_str()).ok_or("Missing required 'summary'")?;
             finalize_session(summary)
+        }
+        "heald_drift" => {
+            let fix = args.get("fix").and_then(|v| v.as_bool()).unwrap_or(false);
+            mcp_drift(fix)
         }
         other => Err(format!("Unknown tool: {}", other)),
     }
@@ -434,7 +468,12 @@ fn mcp_clean(dry_run: bool, threshold: Option<usize>) -> Result<String, String> 
     Ok(format!("Clean complete. Archived {} documents.", archived))
 }
 
-fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bool) -> Result<String, String> {
+fn recall_memory(
+    query_opt: Option<&str>,
+    budget_opt: Option<usize>,
+    compact: bool,
+    strict_intent: bool,
+) -> Result<String, String> {
     let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
     if !local_base.exists() {
         crate::cmd::init::run(false);
@@ -463,11 +502,19 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
 
     if let Some(query) = query_opt {
         let q = query.to_lowercase();
-        docs.retain(|d| {
-            d.frontmatter.effective_title().to_lowercase().contains(&q)
-                || d.content.to_lowercase().contains(&q)
-                || d.frontmatter.tags.as_ref().is_some_and(|tags| tags.iter().any(|t| t.to_lowercase().contains(&q)))
-        });
+        if strict_intent {
+            docs.retain(|d| {
+                d.frontmatter.effective_title().to_lowercase().contains(&q)
+                    || d.content.to_lowercase().contains(&q)
+                    || d.frontmatter.tags.as_ref().is_some_and(|tags| tags.iter().any(|t| t.to_lowercase().contains(&q) || t.eq_ignore_ascii_case("pinned")))
+            });
+        } else {
+            docs.retain(|d| {
+                d.frontmatter.effective_title().to_lowercase().contains(&q)
+                    || d.content.to_lowercase().contains(&q)
+                    || d.frontmatter.tags.as_ref().is_some_and(|tags| tags.iter().any(|t| t.to_lowercase().contains(&q)))
+            });
+        }
     }
 
     docs.sort_by_key(|d| -score_doc(d));
@@ -477,9 +524,20 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
     let mut included = Vec::new();
 
     if let Some(idx) = index_doc {
-        let len = idx.content.len();
-        current_chars += len;
-        included.push(idx);
+        if strict_intent && query_opt.is_some() {
+            let active_titles: Vec<String> = docs
+                .iter()
+                .map(|d| d.frontmatter.effective_title().to_string())
+                .collect();
+            let sliced_idx = crate::cmd::context::slice_manifest_index(&idx, &active_titles);
+            let len = sliced_idx.content.len();
+            current_chars += len;
+            included.push(sliced_idx);
+        } else {
+            let len = idx.content.len();
+            current_chars += len;
+            included.push(idx);
+        }
     }
 
     let total_available = docs.len() + if included.is_empty() { 0 } else { 1 };
@@ -492,11 +550,14 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
         }
     }
 
+    let intent_tag = if strict_intent { " [Intent-Sliced]" } else { "" };
     let mut out = format!(
-        "<!-- Heald Context: Included {}/{} memory documents (Budget: {} chars) -->\n",
+        "<!-- Heald Context: Included {}/{} memory documents (Budget: {} chars{}){} -->\n",
         included.len(),
         total_available,
-        budget_chars
+        budget_chars,
+        query_opt.map(|q| format!(", Query: \"{}\"", q)).unwrap_or_default(),
+        intent_tag
     );
 
     for doc in included {
@@ -510,6 +571,24 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
     }
 
     Ok(out)
+}
+
+fn mcp_drift(fix: bool) -> Result<String, String> {
+    let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
+    let project_root = std::env::current_dir().unwrap_or_default();
+    if !local_base.exists() {
+        return Err(".heald directory not found. Run `heald init` first.".to_string());
+    }
+    let items = crate::cmd::drift::detect_drift(&local_base, &project_root);
+    if items.is_empty() {
+        return Ok("✓ Zero symbol drift detected across all memory documents and codebase symbols.".to_string());
+    }
+    if fix {
+        crate::cmd::drift::run(true, false);
+        return Ok(format!("Repaired {} drifted symbol reference(s).", items.len()));
+    }
+    let res = serde_json::to_string_pretty(&items).map_err(|e| e.to_string())?;
+    Ok(res)
 }
 
 fn finalize_session(summary: &str) -> Result<String, String> {

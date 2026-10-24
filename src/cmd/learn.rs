@@ -192,8 +192,8 @@ pub fn extract_symbols(content: &str, file_ext: &str) -> Vec<SymbolInfo> {
         regex::Regex::new(r"^(?:async\s+)?function\s+([a-zA-Z0-9_]+)\s*\(").unwrap();
 
     // Regex for Rust
-    let re_rust_fn = regex::Regex::new(r"pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)").unwrap();
-    let re_rust_struct = regex::Regex::new(r"pub\s+(?:struct|enum)\s+([a-zA-Z0-9_]+)").unwrap();
+    let re_rust_fn = regex::Regex::new(r"(?:pub(?:\([^\)]+\))?\s+)?(?:async\s+)?fn\s+([a-zA-Z0-9_]+)").unwrap();
+    let re_rust_struct = regex::Regex::new(r"(?:pub(?:\([^\)]+\))?\s+)?(?:struct|enum)\s+([a-zA-Z0-9_]+)").unwrap();
 
     // Regex for Python
     let re_py_fn = regex::Regex::new(r"^\s*(?:async\s+)?def\s+([a-zA-Z0-9_]+)\s*\(").unwrap();

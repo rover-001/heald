@@ -11,4 +11,5 @@ pub mod compact;
 pub mod clean;
 pub mod learn;
 pub mod skill;
+pub mod drift;
 pub mod mcp;

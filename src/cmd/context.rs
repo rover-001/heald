@@ -2,7 +2,13 @@ use std::collections::HashMap;
 use crate::bm25::{score_bm25, tokenize};
 use crate::okf::Document;
 
-pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: bool) {
+pub fn run(
+    _harness: &str,
+    budget: Option<usize>,
+    query: Option<&str>,
+    compact: bool,
+    strict_intent: bool,
+) {
     let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
     
     // Auto-init if local workspace doesn't exist
@@ -111,7 +117,25 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: 
                 }
             });
 
-            docs = scored_docs.into_iter().map(|(_, _, d)| d).collect();
+            if strict_intent {
+                let has_bm25_matches = scored_docs.iter().any(|(bm, _, _)| *bm > 0.0001);
+                if has_bm25_matches {
+                    docs = scored_docs
+                        .into_iter()
+                        .filter(|(bm, _, d)| {
+                            *bm > 0.0001
+                                || d.frontmatter.tags.as_ref().is_some_and(|t| {
+                                    t.iter().any(|tag| tag.eq_ignore_ascii_case("pinned"))
+                                })
+                        })
+                        .map(|(_, _, d)| d)
+                        .collect();
+                } else {
+                    docs = scored_docs.into_iter().map(|(_, _, d)| d).collect();
+                }
+            } else {
+                docs = scored_docs.into_iter().map(|(_, _, d)| d).collect();
+            }
 
         } else {
             docs.sort_by_key(|d| -score(d));
@@ -125,9 +149,20 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: 
     let mut included = Vec::new();
 
     if let Some(idx) = index_doc {
-        let len = idx.content.len();
-        current_chars += len;
-        included.push(idx);
+        if strict_intent && query.is_some() {
+            let active_titles: Vec<String> = docs
+                .iter()
+                .map(|d| d.frontmatter.effective_title().to_string())
+                .collect();
+            let sliced_idx = slice_manifest_index(&idx, &active_titles);
+            let len = sliced_idx.content.len();
+            current_chars += len;
+            included.push(sliced_idx);
+        } else {
+            let len = idx.content.len();
+            current_chars += len;
+            included.push(idx);
+        }
     }
 
     let total_available = docs.len() + if included.is_empty() { 0 } else { 1 };
@@ -140,12 +175,14 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: 
         }
     }
 
+    let intent_tag = if strict_intent { " [Intent-Sliced]" } else { "" };
     println!(
-        "<!-- Heald Context: Included {}/{} memory documents (Budget: {} chars{}) -->",
+        "<!-- Heald Context: Included {}/{} memory documents (Budget: {} chars{}{}) -->",
         included.len(),
         total_available,
         budget_chars,
-        query.map(|q| format!(", Query: \"{}\"", q)).unwrap_or_default()
+        query.map(|q| format!(", Query: \"{}\"", q)).unwrap_or_default(),
+        intent_tag
     );
     for doc in &included {
         if compact {
@@ -167,12 +204,12 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: 
         if let Some(q) = query {
             let matches = crate::cmd::learn::query_knowledge(&kb, q);
             if !matches.is_empty() {
-                for (feat, matched_files, _) in matches.into_iter().take(2) {
+                for (feat, matched_files, _) in matches.into_iter().take(3) {
                     println!("### Feature: {}", feat.name);
                     for (file, syms) in matched_files.into_iter().take(4) {
                         println!("- `{}` ({})", file.path, file.layer);
                         let top_syms = if !syms.is_empty() { syms } else { file.symbols.iter().collect() };
-                        for sym in top_syms.into_iter().take(3) {
+                        for sym in top_syms.into_iter().take(4) {
                             println!("  * `{}` [{}] (L{})", sym.name, sym.kind, sym.line);
                         }
                     }
@@ -192,6 +229,37 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: 
             }
         }
     }
+}
+
+pub fn slice_manifest_index(idx: &Document, included_titles: &[String]) -> Document {
+    let mut sliced_lines = Vec::new();
+    let mut in_table = false;
+
+    for line in idx.content.lines() {
+        if line.starts_with("| Title |") || line.starts_with("| :---") {
+            in_table = true;
+            sliced_lines.push(line);
+            continue;
+        }
+
+        if in_table && line.starts_with('|') {
+            // Table row: check if any of included titles match this row
+            let lower_line = line.to_lowercase();
+            let matches = included_titles.iter().any(|t| lower_line.contains(&t.to_lowercase()));
+            if matches {
+                sliced_lines.push(line);
+            }
+        } else {
+            if in_table && !line.starts_with('|') {
+                in_table = false;
+            }
+            sliced_lines.push(line);
+        }
+    }
+
+    let mut new_doc = idx.clone();
+    new_doc.content = sliced_lines.join("\n");
+    new_doc
 }
 
 pub fn format_compact_doc(doc: &Document) -> String {

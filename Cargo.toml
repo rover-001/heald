@@ -1,6 +1,6 @@
 [package]
 name = "heald"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2024"
 description = "One memory. Every AI agent. A single-binary CLI that keeps Antigravity, Claude Code, Cursor, Hermes, and Codex all reading from the same rules and project memory."
 license = "MIT"

@@ -140,5 +140,19 @@ pub fn validate_memory_integrity(local_base: &Path, project_root: &Path) -> (boo
         }
     }
 
+    // 4. Check symbol-level drift
+    let drift_items = crate::cmd::drift::detect_drift(local_base, project_root);
+    for item in drift_items {
+        if item.issue_type == crate::cmd::drift::DriftIssueType::SymbolMoved
+            || item.issue_type == crate::cmd::drift::DriftIssueType::SymbolMissing
+        {
+            println!(
+                "WARNING (Symbol Drift): In '{}' -> {}",
+                item.doc_file, item.message
+            );
+            warnings_count += 1;
+        }
+    }
+
     (has_errors, warnings_count)
 }
