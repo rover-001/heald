@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::bm25::{score_bm25, tokenize};
 use crate::okf::Document;
 
-pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>) {
+pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>, compact: bool) {
     let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
     
     // Auto-init if local workspace doesn't exist
@@ -147,13 +147,17 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>) {
         budget_chars,
         query.map(|q| format!(", Query: \"{}\"", q)).unwrap_or_default()
     );
-    for doc in included {
-        let title_to_show = doc.frontmatter.title.as_deref().unwrap_or(&doc.frontmatter.r#type);
-        let trimmed = doc.content.trim_start();
-        if trimmed.starts_with(&format!("# {}", title_to_show)) || trimmed.starts_with("# ") {
-            println!("\n{}", doc.content.trim());
+    for doc in &included {
+        if compact {
+            println!("\n{}", format_compact_doc(doc));
         } else {
-            println!("\n# {}\n\n{}", title_to_show, doc.content.trim());
+            let title_to_show = doc.frontmatter.title.as_deref().unwrap_or(&doc.frontmatter.r#type);
+            let trimmed = doc.content.trim_start();
+            if trimmed.starts_with(&format!("# {}", title_to_show)) || trimmed.starts_with("# ") {
+                println!("\n{}", doc.content.trim());
+            } else {
+                println!("\n# {}\n\n{}", title_to_show, doc.content.trim());
+            }
         }
     }
 
@@ -188,6 +192,33 @@ pub fn run(_harness: &str, budget: Option<usize>, query: Option<&str>) {
             }
         }
     }
+}
+
+pub fn format_compact_doc(doc: &Document) -> String {
+    let title = doc.frontmatter.effective_title();
+    let date_str = doc.frontmatter.timestamp.as_deref().map(|t| {
+        if t.len() >= 10 { format!(" ({})", &t[..10]) } else { format!(" ({})", t) }
+    }).unwrap_or_default();
+
+    let mut bullets = Vec::new();
+    for line in doc.content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') || trimmed.starts_with("---") {
+            continue;
+        }
+        if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+            bullets.push(trimmed.to_string());
+        } else if bullets.is_empty() {
+            bullets.push(format!("- {}", trimmed));
+        }
+        if bullets.len() >= 4 {
+            break;
+        }
+    }
+    if bullets.is_empty() {
+        bullets.push(format!("- {}", doc.content.trim().chars().take(120).collect::<String>()));
+    }
+    format!("### {}{}\n{}", title, date_str, bullets.join("\n"))
 }
 
 fn score(doc: &Document) -> i32 {

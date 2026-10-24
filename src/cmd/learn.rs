@@ -84,6 +84,10 @@ pub fn detect_file_feature(rel_path: &str, content: &str) -> &'static str {
         "Model Context Protocol (MCP)"
     } else if lower_path.contains("context") || lower_path.contains("remember") || lower_path.contains("finalize") {
         "Context & Memory Engine"
+    } else if lower_path.contains("bm25") || lower_path.contains("search") || lower_path.contains("tokenize") {
+        "Search & Retrieval"
+    } else if lower_path.starts_with("src/cmd/") || lower_path.contains("/cmd/") {
+        "CLI Commands"
     } else if lower_path.contains("calendar") || lower_path.contains("recurring") || lower_path.contains("schedule") {
         "Calendar & Scheduling"
     } else if lower_path.contains("oauth") || lower_path.contains("auth") || lower_path.contains("login") || lower_path.contains("session") {
@@ -94,8 +98,8 @@ pub fn detect_file_feature(rel_path: &str, content: &str) -> &'static str {
         "DM Automation & Unified Inbox"
     } else if lower_path.contains("email") || lower_path.contains("imap") || lower_path.contains("smtp") {
         "Email Synchronization & Polling"
-    } else if lower_path.contains("mascot") || lower_path.contains("gemini") || lower_path.contains("ai") || lower_path.contains("chat") {
-        "AI Assistant & Mascot"
+    } else if lower_path.contains("mascot") || lower_path.contains("gemini") || lower_path.contains("voice") {
+        "AI Mascot & Voice Assistant"
     } else if lower_path.contains("sync") || lower_path.contains("cloud") || lower_path.contains("turso") {
         "Cloud Sync & Replication"
     } else if lower_path.contains("sqlite") || lower_path.contains("db") || lower_path.contains("convex") || lower_path.contains("schema") {
@@ -106,7 +110,7 @@ pub fn detect_file_feature(rel_path: &str, content: &str) -> &'static str {
         "CRM & Campaigns"
     } else if lower_content.contains("calendar") && lower_content.contains("recurring") {
         "Calendar & Scheduling"
-    } else if lower_content.contains("oauth") || lower_content.contains("token") {
+    } else if lower_content.contains("oauth") || lower_content.contains("jwt") || lower_content.contains("access_token") {
         "Authentication & OAuth"
     } else {
         "Core Application Logic"

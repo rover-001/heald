@@ -31,6 +31,9 @@ pub fn run(summary: Option<&str>, stdin: bool) {
         let mut content = std::fs::read_to_string(&log_path).unwrap_or_default();
         content.push_str(&entry);
         std::fs::write(&log_path, content).unwrap();
+    } else {
+        std::fs::create_dir_all(&memory_dir).unwrap();
+        std::fs::write(&log_path, format!("---\ntype: log\n---\n# Memory Log\n{}", entry)).unwrap();
     }
     
     // 1. Auto-learn: associate modified files from this session with the summary

@@ -65,9 +65,17 @@ pub fn extract_snippet(content: &str, path: &str) -> Option<String> {
 /// Extract candidate source code file paths mentioned in a document.
 pub fn extract_referenced_paths(content: &str) -> Vec<String> {
     let mut paths = Vec::new();
-    let re = regex::Regex::new(r"([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9_\-]+)").unwrap();
+    let re = regex::Regex::new(r"(?:^|[\s`'\(])([~a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9_\-]+)").unwrap();
+    let code_extensions = [
+        "rs", "ts", "tsx", "js", "jsx", "py", "go", "rb", "c", "cpp", "h", "hpp",
+        "toml", "json", "yaml", "yml", "sql", "sh", "css", "scss", "html", "vue", "svelte", "proto",
+    ];
     for cap in re.captures_iter(content) {
         let matched = &cap[1];
+        // Exclude paths starting with ~ or absolute paths starting with /
+        if matched.starts_with('~') || matched.starts_with('/') {
+            continue;
+        }
         let norm = normalize_path(matched);
         // Exclude web URLs, anchors, markdown syntax fragments, or pure extensions
         if norm.starts_with("http://") || norm.starts_with("https://") || norm.starts_with("www.") {
@@ -77,9 +85,8 @@ pub fn extract_referenced_paths(content: &str) -> Vec<String> {
         if norm.ends_with(".md") {
             continue;
         }
-        // Must contain a slash or dot extension with typical code file extension
-        let is_code_or_file = norm.contains('/') || norm.contains('\\') || norm.ends_with(".rs") || norm.ends_with(".ts") || norm.ends_with(".js") || norm.ends_with(".py") || norm.ends_with(".go") || norm.ends_with(".toml") || norm.ends_with(".json") || norm.ends_with(".yaml") || norm.ends_with(".yml");
-        if is_code_or_file && !paths.contains(&norm) {
+        let ext = Path::new(&norm).extension().and_then(|s| s.to_str()).unwrap_or("");
+        if code_extensions.contains(&ext) && !paths.contains(&norm) {
             paths.push(norm);
         }
     }
@@ -180,5 +187,17 @@ pub fn rebuild_memory_index(local_base: &Path) {
 
     if let Err(e) = std::fs::write(&index_path, full_content) {
         eprintln!("Failed to write index.md: {}", e);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_paths() {
+        let text = "Added blackbox-execution rule to ~/.heald/rules and updated ~/.gemini/config/AGENTS.md to enforce. Modified src/auth.rs and non_existent.rs.";
+        let paths = extract_referenced_paths(text);
+        assert_eq!(paths, vec!["src/auth.rs", "non_existent.rs"]);
     }
 }

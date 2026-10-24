@@ -203,6 +203,10 @@ fn get_tool_definitions() -> Vec<Value> {
                     "budget": {
                         "type": "integer",
                         "description": "Maximum character budget (defaults to ~32000 chars / 8000 tokens)."
+                    },
+                    "compact": {
+                        "type": "boolean",
+                        "description": "Return ultra-condensed token-efficient summaries instead of full document bodies."
                     }
                 }
             }
@@ -302,6 +306,20 @@ fn get_tool_definitions() -> Vec<Value> {
                     "threshold": { "type": "integer", "description": "Maximum allowed active memory documents before consolidation." }
                 }
             }
+        }),
+        json!({
+            "name": "heald_finalize",
+            "description": "Finalize an agent session: append summary to memory log, run auto-learn on modified files, and trigger auto-clean if needed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Session summary describing what was accomplished."
+                    }
+                },
+                "required": ["summary"]
+            }
         })
     ]
 }
@@ -311,7 +329,8 @@ pub fn handle_tool_call(name: &str, args: &Value) -> Result<String, String> {
         "heald_recall" => {
             let query = args.get("query").and_then(|v| v.as_str());
             let budget = args.get("budget").and_then(|v| v.as_u64()).map(|b| b as usize);
-            recall_memory(query, budget)
+            let compact = args.get("compact").and_then(|v| v.as_bool()).unwrap_or(false);
+            recall_memory(query, budget, compact)
         }
         "heald_remember" => {
             let doc_type = args.get("type").and_then(|v| v.as_str()).unwrap_or("decision");
@@ -349,6 +368,10 @@ pub fn handle_tool_call(name: &str, args: &Value) -> Result<String, String> {
             let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false);
             let threshold = args.get("threshold").and_then(|v| v.as_u64()).map(|t| t as usize);
             mcp_clean(dry_run, threshold)
+        }
+        "heald_finalize" => {
+            let summary = args.get("summary").and_then(|v| v.as_str()).ok_or("Missing required 'summary'")?;
+            finalize_session(summary)
         }
         other => Err(format!("Unknown tool: {}", other)),
     }
@@ -411,7 +434,7 @@ fn mcp_clean(dry_run: bool, threshold: Option<usize>) -> Result<String, String> 
     Ok(format!("Clean complete. Archived {} documents.", archived))
 }
 
-fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>) -> Result<String, String> {
+fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bool) -> Result<String, String> {
     let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
     if !local_base.exists() {
         crate::cmd::init::run(false);
@@ -478,7 +501,9 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>) -> Result<S
     );
 
     for doc in included {
-        if let Some(title) = &doc.frontmatter.title {
+        if compact {
+            out.push_str(&format!("\n{}\n", crate::cmd::context::format_compact_doc(&doc)));
+        } else if let Some(title) = &doc.frontmatter.title {
             out.push_str(&format!("\n# {}\n\n{}\n", title, doc.content));
         } else {
             out.push_str(&format!("\n# {}\n\n{}\n", doc.frontmatter.r#type, doc.content));
@@ -486,6 +511,34 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>) -> Result<S
     }
 
     Ok(out)
+}
+
+fn finalize_session(summary: &str) -> Result<String, String> {
+    if summary.trim().is_empty() {
+        return Err("Summary cannot be empty".to_string());
+    }
+    let local_base = std::env::current_dir().unwrap_or_default().join(".heald");
+    if !local_base.exists() {
+        crate::cmd::init::run(false);
+    }
+    let memory_dir = local_base.join("memory");
+    let log_path = memory_dir.join("log.md");
+    let timestamp = Utc::now().to_rfc3339();
+    let entry = format!("\n## Session {}\n\n{}\n", timestamp, summary.trim());
+
+    if log_path.exists() {
+        let mut content = std::fs::read_to_string(&log_path).unwrap_or_default();
+        content.push_str(&entry);
+        std::fs::write(&log_path, content).map_err(|e| e.to_string())?;
+    } else {
+        std::fs::create_dir_all(&memory_dir).map_err(|e| e.to_string())?;
+        std::fs::write(&log_path, format!("---\ntype: log\n---\n# Memory Log\n{}", entry)).map_err(|e| e.to_string())?;
+    }
+
+    crate::cmd::learn::auto_learn_from_git(summary);
+    crate::cmd::clean::run_clean(true, false, false, Some(20));
+
+    Ok("Session finalized and logged successfully.".to_string())
 }
 
 fn score_doc(doc: &Document) -> i32 {

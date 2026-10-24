@@ -30,6 +30,8 @@ enum Commands {
         budget: Option<usize>,
         #[arg(short = 'q', long = "relevant", aliases = ["query"])]
         query: Option<String>,
+        #[arg(short = 'c', long = "compact")]
+        compact: bool,
     },
     /// Append a new memory document
     Remember {
@@ -147,7 +149,7 @@ fn main() {
     match &cli.command {
         Commands::Init { global } => cmd::init::run(*global),
         Commands::Sync { harness, all } => cmd::sync::run(harness.as_deref(), *all),
-        Commands::Context { harness, budget, query } => cmd::context::run(harness, *budget, query.as_deref()),
+        Commands::Context { harness, budget, query, compact } => cmd::context::run(harness, *budget, query.as_deref(), *compact),
         Commands::Remember { r#type, title, body, tags, stdin } => {
             cmd::remember::run(r#type, title, body.as_deref(), tags.as_deref(), *stdin)
         }

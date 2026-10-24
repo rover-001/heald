@@ -235,7 +235,20 @@ fn test_mcp_server_stdio_interaction() {
         "params": {
             "name": "heald_recall",
             "arguments": {
-                "query": "MCP Stdio Test"
+                "query": "MCP Stdio Test",
+                "compact": true
+            }
+        }
+    });
+
+    let finalize_req = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+            "name": "heald_finalize",
+            "arguments": {
+                "summary": "Completed session via MCP tool call."
             }
         }
     });
@@ -246,6 +259,7 @@ fn test_mcp_server_stdio_interaction() {
         writeln!(stdin, "{}", serde_json::to_string(&list_req).unwrap()).unwrap();
         writeln!(stdin, "{}", serde_json::to_string(&remember_req).unwrap()).unwrap();
         writeln!(stdin, "{}", serde_json::to_string(&recall_req).unwrap()).unwrap();
+        writeln!(stdin, "{}", serde_json::to_string(&finalize_req).unwrap()).unwrap();
     }
 
     let output = child.wait_with_output().expect("failed to read output");
@@ -258,8 +272,23 @@ fn test_mcp_server_stdio_interaction() {
     assert!(stdout.contains("heald_map"));
     assert!(stdout.contains("heald_blame"));
     assert!(stdout.contains("heald_doctor"));
+    assert!(stdout.contains("heald_finalize"));
     assert!(stdout.contains("Saved memory to"));
     assert!(stdout.contains("MCP Stdio Test Memory"));
+    assert!(stdout.contains("Session finalized and logged successfully"));
+}
+
+#[test]
+fn test_context_compact_mode() {
+    let output = Command::new(get_bin())
+        .args(&["context", "agents", "--compact"])
+        .output()
+        .expect("failed to execute");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("### Memory Index") || stdout.contains("###"));
+    assert!(stdout.contains("<!-- Heald Context: Included"));
 }
 
 #[test]
