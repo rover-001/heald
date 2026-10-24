@@ -450,15 +450,14 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
         let walker = walkdir::WalkDir::new(&memory_dir).into_iter().filter_map(|e| e.ok());
         for entry in walker {
             let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-                if let Ok(doc) = Document::from_file(path) {
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md")
+                && let Ok(doc) = Document::from_file(path) {
                     if path.file_name().and_then(|n| n.to_str()) == Some("index.md") {
                         index_doc = Some(doc);
                     } else if path.file_name().and_then(|n| n.to_str()) != Some("log.md") {
                         docs.push(doc);
                     }
                 }
-            }
         }
     }
 
@@ -467,7 +466,7 @@ fn recall_memory(query_opt: Option<&str>, budget_opt: Option<usize>, compact: bo
         docs.retain(|d| {
             d.frontmatter.effective_title().to_lowercase().contains(&q)
                 || d.content.to_lowercase().contains(&q)
-                || d.frontmatter.tags.as_ref().map_or(false, |tags| tags.iter().any(|t| t.to_lowercase().contains(&q)))
+                || d.frontmatter.tags.as_ref().is_some_and(|tags| tags.iter().any(|t| t.to_lowercase().contains(&q)))
         });
     }
 
@@ -543,17 +542,15 @@ fn finalize_session(summary: &str) -> Result<String, String> {
 
 fn score_doc(doc: &Document) -> i32 {
     let mut s = 0;
-    if let Some(tags) = &doc.frontmatter.tags {
-        if tags.iter().any(|t| t == "pinned") {
+    if let Some(tags) = &doc.frontmatter.tags
+        && tags.iter().any(|t| t == "pinned") {
             s += 1000;
         }
-    }
-    if let Some(ts) = &doc.frontmatter.timestamp {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
+    if let Some(ts) = &doc.frontmatter.timestamp
+        && let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
             let days = (chrono::Utc::now() - dt.with_timezone(&chrono::Utc)).num_days();
             s += (100 - days).max(0) as i32;
         }
-    }
     s
 }
 
@@ -610,7 +607,7 @@ fn forget_memory(query: &str) -> Result<String, String> {
 
     let walker = walkdir::WalkDir::new(&memory_dir).into_iter().filter_map(|e| e.ok());
     for entry in walker {
-        if entry.file_type().is_file() && entry.path().extension().map_or(false, |ext| ext == "md") {
+        if entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "md") {
             let file_stem = entry.path().file_stem().unwrap().to_str().unwrap();
             if file_stem == "log" || file_stem == "index" {
                 continue;
@@ -676,11 +673,10 @@ fn blame_path(path: &str) -> Result<String, String> {
     if target_path.is_dir() {
         let walker = ignore::WalkBuilder::new(target_path).build();
         for result in walker {
-            if let Ok(entry) = result {
-                if entry.path().is_file() {
+            if let Ok(entry) = result
+                && entry.path().is_file() {
                     files_to_check.push(entry.path().to_path_buf());
                 }
-            }
         }
     } else {
         files_to_check.push(target_path.to_path_buf());
@@ -741,10 +737,9 @@ fn check_doctor_dir(dir: &Path, issues: &mut Vec<String>) {
     let walker = walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok());
     for entry in walker {
         let path = entry.path();
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-            if let Err(e) = Document::from_file(path) {
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md")
+            && let Err(e) = Document::from_file(path) {
                 issues.push(format!("ERROR in {}: {}", path.display(), e));
             }
-        }
     }
 }

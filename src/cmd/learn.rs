@@ -1,9 +1,9 @@
+use crate::bm25::tokenize;
+use crate::xref::normalize_path;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use serde::{Deserialize, Serialize};
-use crate::bm25::tokenize;
-use crate::xref::normalize_path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SymbolInfo {
@@ -54,17 +54,32 @@ pub fn classify_layer(rel_path: &str) -> &'static str {
         .unwrap_or("")
         .to_lowercase();
 
-    if lower.contains("routes/") || lower.contains("screens/") || lower.contains("pages/") || lower.contains("app/") {
+    if lower.contains("routes/")
+        || lower.contains("screens/")
+        || lower.contains("pages/")
+        || lower.contains("app/")
+    {
         "Route"
-    } else if lower.contains("stores/") || lower.contains("context/") || lower.contains("state/") || lower.contains("redux") {
+    } else if lower.contains("stores/")
+        || lower.contains("context/")
+        || lower.contains("state/")
+        || lower.contains("redux")
+    {
         "Store"
-    } else if lower.contains("db/") || lower.contains("queries/") || lower.contains("convex/") || lower.contains("schema") || lower.contains("migrations/") {
+    } else if lower.contains("db/")
+        || lower.contains("queries/")
+        || lower.contains("convex/")
+        || lower.contains("schema")
+        || lower.contains("migrations/")
+    {
         "Database"
     } else if lower.contains("services/") || lower.contains("api/") || lower.contains("server/") {
         "Service"
     } else if lower.contains("hooks/") || name.starts_with("use") {
         "Hook"
-    } else if lower.contains("components/") || (rel_path.ends_with(".tsx") && name.chars().next().map_or(false, |c| c.is_uppercase())) {
+    } else if lower.contains("components/")
+        || (rel_path.ends_with(".tsx") && name.chars().next().is_some_and(|c| c.is_uppercase()))
+    {
         "Component"
     } else {
         "Util"
@@ -82,35 +97,80 @@ pub fn detect_file_feature(rel_path: &str, content: &str) -> &'static str {
         "Codebase Learning & Indexing"
     } else if lower_path.contains("mcp") || lower_path.contains("serve") {
         "Model Context Protocol (MCP)"
-    } else if lower_path.contains("context") || lower_path.contains("remember") || lower_path.contains("finalize") {
+    } else if lower_path.contains("context")
+        || lower_path.contains("remember")
+        || lower_path.contains("finalize")
+    {
         "Context & Memory Engine"
-    } else if lower_path.contains("bm25") || lower_path.contains("search") || lower_path.contains("tokenize") {
+    } else if lower_path.contains("bm25")
+        || lower_path.contains("search")
+        || lower_path.contains("tokenize")
+    {
         "Search & Retrieval"
     } else if lower_path.starts_with("src/cmd/") || lower_path.contains("/cmd/") {
         "CLI Commands"
-    } else if lower_path.contains("calendar") || lower_path.contains("recurring") || lower_path.contains("schedule") {
+    } else if lower_path.contains("calendar")
+        || lower_path.contains("recurring")
+        || lower_path.contains("schedule")
+    {
         "Calendar & Scheduling"
-    } else if lower_path.contains("oauth") || lower_path.contains("auth") || lower_path.contains("login") || lower_path.contains("session") {
+    } else if lower_path.contains("oauth")
+        || lower_path.contains("auth")
+        || lower_path.contains("login")
+        || lower_path.contains("session")
+    {
         "Authentication & OAuth"
-    } else if lower_path.contains("social") || lower_path.contains("instagram") || lower_path.contains("youtube") || lower_path.contains("pinterest") {
+    } else if lower_path.contains("social")
+        || lower_path.contains("instagram")
+        || lower_path.contains("youtube")
+        || lower_path.contains("pinterest")
+    {
         "Social Channels & Accounts"
-    } else if lower_path.contains("inbox") || lower_path.contains("dm") || lower_path.contains("automation") || lower_path.contains("webhook") {
+    } else if lower_path.contains("inbox")
+        || lower_path.contains("dm")
+        || lower_path.contains("automation")
+        || lower_path.contains("webhook")
+    {
         "DM Automation & Unified Inbox"
-    } else if lower_path.contains("email") || lower_path.contains("imap") || lower_path.contains("smtp") {
+    } else if lower_path.contains("email")
+        || lower_path.contains("imap")
+        || lower_path.contains("smtp")
+    {
         "Email Synchronization & Polling"
-    } else if lower_path.contains("mascot") || lower_path.contains("gemini") || lower_path.contains("voice") {
+    } else if lower_path.contains("mascot")
+        || lower_path.contains("gemini")
+        || lower_path.contains("voice")
+    {
         "AI Mascot & Voice Assistant"
-    } else if lower_path.contains("sync") || lower_path.contains("cloud") || lower_path.contains("turso") {
+    } else if lower_path.contains("sync")
+        || lower_path.contains("cloud")
+        || lower_path.contains("turso")
+    {
         "Cloud Sync & Replication"
-    } else if lower_path.contains("sqlite") || lower_path.contains("db") || lower_path.contains("convex") || lower_path.contains("schema") {
+    } else if lower_path.contains("sqlite")
+        || lower_path.contains("db")
+        || lower_path.contains("convex")
+        || lower_path.contains("schema")
+    {
         "Database & Schema"
-    } else if lower_path.contains("theme") || lower_path.contains("styles") || lower_path.contains("colors") || lower_path.contains("layout") || lower_path.contains("ui") {
+    } else if lower_path.contains("theme")
+        || lower_path.contains("styles")
+        || lower_path.contains("colors")
+        || lower_path.contains("layout")
+        || lower_path.contains("ui")
+    {
         "UI Theme & Components"
-    } else if lower_path.contains("campaign") || lower_path.contains("crm") || lower_path.contains("leads") {
+    } else if lower_path.contains("campaign")
+        || lower_path.contains("crm")
+        || lower_path.contains("leads")
+    {
         "CRM & Campaigns"
     } else if lower_content.contains("calendar") && lower_content.contains("recurring") {
         "Calendar & Scheduling"
-    } else if lower_content.contains("oauth") || lower_content.contains("jwt") || lower_content.contains("access_token") {
+    } else if lower_content.contains("oauth")
+        || lower_content.contains("jwt")
+        || lower_content.contains("access_token")
+    {
         "Authentication & OAuth"
     } else {
         "Core Application Logic"
@@ -123,10 +183,13 @@ pub fn extract_symbols(content: &str, file_ext: &str) -> Vec<SymbolInfo> {
 
     // Regex patterns for TypeScript / JavaScript
     let re_ts_fn = regex::Regex::new(r"export\s+(?:async\s+)?function\s+([a-zA-Z0-9_]+)").unwrap();
-    let re_ts_const_fn = regex::Regex::new(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:async\s*)?\(").unwrap();
+    let re_ts_const_fn =
+        regex::Regex::new(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:async\s*)?\(").unwrap();
     let re_ts_convex = regex::Regex::new(r"export\s+const\s+([a-zA-Z0-9_]+)\s*=\s*(?:internalM|m|q|internalQ|a|internalA)(?:utation|uery|ction)\(").unwrap();
-    let re_ts_component = regex::Regex::new(r"export\s+(?:default\s+)?function\s+([A-Z][a-zA-Z0-9_]+)").unwrap();
-    let re_regular_fn = regex::Regex::new(r"^(?:async\s+)?function\s+([a-zA-Z0-9_]+)\s*\(").unwrap();
+    let re_ts_component =
+        regex::Regex::new(r"export\s+(?:default\s+)?function\s+([A-Z][a-zA-Z0-9_]+)").unwrap();
+    let re_regular_fn =
+        regex::Regex::new(r"^(?:async\s+)?function\s+([a-zA-Z0-9_]+)\s*\(").unwrap();
 
     // Regex for Rust
     let re_rust_fn = regex::Regex::new(r"pub\s+(?:async\s+)?fn\s+([a-zA-Z0-9_]+)").unwrap();
@@ -148,40 +211,108 @@ pub fn extract_symbols(content: &str, file_ext: &str) -> Vec<SymbolInfo> {
         if file_ext == "ts" || file_ext == "tsx" || file_ext == "js" || file_ext == "jsx" {
             if let Some(cap) = re_ts_convex.captures(line_trimmed) {
                 let name = cap[1].to_string();
-                let kind = if line_trimmed.contains("mutation") { "Mutation" } else if line_trimmed.contains("query") { "Query" } else { "Action" };
-                symbols.push(SymbolInfo { name, kind: kind.to_string(), line: line_num, doc: None });
+                let kind = if line_trimmed.contains("mutation") {
+                    "Mutation"
+                } else if line_trimmed.contains("query") {
+                    "Query"
+                } else {
+                    "Action"
+                };
+                symbols.push(SymbolInfo {
+                    name,
+                    kind: kind.to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_ts_fn.captures(line_trimmed) {
                 let name = cap[1].to_string();
-                let kind = if name.starts_with("use") { "Hook" } else if name.chars().next().map_or(false, |c| c.is_uppercase()) { "Component" } else { "Function" };
-                symbols.push(SymbolInfo { name, kind: kind.to_string(), line: line_num, doc: None });
+                let kind = if name.starts_with("use") {
+                    "Hook"
+                } else if name.chars().next().is_some_and(|c| c.is_uppercase()) {
+                    "Component"
+                } else {
+                    "Function"
+                };
+                symbols.push(SymbolInfo {
+                    name,
+                    kind: kind.to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_ts_const_fn.captures(line_trimmed) {
                 let name = cap[1].to_string();
-                let kind = if name.starts_with("use") { "Hook" } else if name.chars().next().map_or(false, |c| c.is_uppercase()) { "Component" } else { "Function" };
-                symbols.push(SymbolInfo { name, kind: kind.to_string(), line: line_num, doc: None });
+                let kind = if name.starts_with("use") {
+                    "Hook"
+                } else if name.chars().next().is_some_and(|c| c.is_uppercase()) {
+                    "Component"
+                } else {
+                    "Function"
+                };
+                symbols.push(SymbolInfo {
+                    name,
+                    kind: kind.to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_ts_component.captures(line_trimmed) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Component".to_string(), line: line_num, doc: None });
+                symbols.push(SymbolInfo {
+                    name: cap[1].to_string(),
+                    kind: "Component".to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_regular_fn.captures(line_trimmed) {
                 let name = cap[1].to_string();
                 if name.starts_with("use") {
-                    symbols.push(SymbolInfo { name, kind: "Hook".to_string(), line: line_num, doc: None });
+                    symbols.push(SymbolInfo {
+                        name,
+                        kind: "Hook".to_string(),
+                        line: line_num,
+                        doc: None,
+                    });
                 }
             }
         } else if file_ext == "rs" {
             if let Some(cap) = re_rust_fn.captures(line_trimmed) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Function".to_string(), line: line_num, doc: None });
+                symbols.push(SymbolInfo {
+                    name: cap[1].to_string(),
+                    kind: "Function".to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_rust_struct.captures(line_trimmed) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Type".to_string(), line: line_num, doc: None });
+                symbols.push(SymbolInfo {
+                    name: cap[1].to_string(),
+                    kind: "Type".to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             }
         } else if file_ext == "py" {
             if let Some(cap) = re_py_fn.captures(line) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Function".to_string(), line: line_num, doc: None });
+                symbols.push(SymbolInfo {
+                    name: cap[1].to_string(),
+                    kind: "Function".to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             } else if let Some(cap) = re_py_class.captures(line) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Class".to_string(), line: line_num, doc: None });
+                symbols.push(SymbolInfo {
+                    name: cap[1].to_string(),
+                    kind: "Class".to_string(),
+                    line: line_num,
+                    doc: None,
+                });
             }
-        } else if file_ext == "go" {
-            if let Some(cap) = re_go_fn.captures(line) {
-                symbols.push(SymbolInfo { name: cap[1].to_string(), kind: "Function".to_string(), line: line_num, doc: None });
-            }
+        } else if file_ext == "go"
+            && let Some(cap) = re_go_fn.captures(line)
+        {
+            symbols.push(SymbolInfo {
+                name: cap[1].to_string(),
+                kind: "Function".to_string(),
+                line: line_num,
+                doc: None,
+            });
         }
     }
 
@@ -193,16 +324,13 @@ pub fn scan_codebase(root: &Path) -> KnowledgeBase {
     let mut feature_groups: HashMap<String, Vec<LearnedFile>> = HashMap::new();
     let mut file_index = HashMap::new();
 
-    let walker = ignore::WalkBuilder::new(root)
-        .hidden(false)
-        .build();
+    let walker = ignore::WalkBuilder::new(root).hidden(false).build();
 
-    for result in walker {
-        if let Ok(entry) = result {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
+    for entry in walker.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
 
             let path_str = path.to_string_lossy();
             // Skip common non-source directories
@@ -228,7 +356,10 @@ pub fn scan_codebase(root: &Path) -> KnowledgeBase {
 
             // Skip minified or bundle files
             let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if file_name.ends_with(".min.js") || file_name.ends_with(".bundle.js") || file_name.ends_with(".gen.ts") {
+            if file_name.ends_with(".min.js")
+                || file_name.ends_with(".bundle.js")
+                || file_name.ends_with(".gen.ts")
+            {
                 continue;
             }
 
@@ -239,7 +370,11 @@ pub fn scan_codebase(root: &Path) -> KnowledgeBase {
                 let layer = classify_layer(&rel_str).to_string();
                 let symbols = extract_symbols(&content, ext);
 
-                if !symbols.is_empty() || layer == "Route" || layer == "Store" || layer == "Database" {
+                if !symbols.is_empty()
+                    || layer == "Route"
+                    || layer == "Store"
+                    || layer == "Database"
+                {
                     let feature_name = detect_file_feature(&rel_str, &content).to_string();
                     let learned_file = LearnedFile {
                         path: rel_str.clone(),
@@ -247,11 +382,13 @@ pub fn scan_codebase(root: &Path) -> KnowledgeBase {
                         symbols,
                     };
                     file_index.insert(rel_str.clone(), feature_name.clone());
-                    feature_groups.entry(feature_name).or_default().push(learned_file);
+                    feature_groups
+                        .entry(feature_name)
+                        .or_default()
+                        .push(learned_file);
                 }
             }
         }
-    }
 
     let mut features = Vec::new();
     for (name, mut files) in feature_groups {
@@ -293,21 +430,19 @@ pub fn save_knowledge(local_base: &Path, kb: &KnowledgeBase) {
 /// Load knowledge base from .heald/knowledge/features.json
 pub fn load_knowledge(local_base: &Path) -> Option<KnowledgeBase> {
     let json_path = local_base.join("knowledge").join("features.json");
-    if json_path.exists() {
-        if let Ok(raw) = fs::read_to_string(json_path) {
-            if let Ok(mut kb) = serde_json::from_str::<KnowledgeBase>(&raw) {
-                // Load additional workflows if present
-                let wf_path = local_base.join("knowledge").join("workflows.json");
-                if wf_path.exists() {
-                    if let Ok(wf_raw) = fs::read_to_string(wf_path) {
-                        if let Ok(wfs) = serde_json::from_str::<Vec<WorkflowGuide>>(&wf_raw) {
-                            kb.workflows = wfs;
-                        }
-                    }
-                }
-                return Some(kb);
-            }
+    if json_path.exists()
+        && let Ok(raw) = fs::read_to_string(json_path)
+        && let Ok(mut kb) = serde_json::from_str::<KnowledgeBase>(&raw)
+    {
+        // Load additional workflows if present
+        let wf_path = local_base.join("knowledge").join("workflows.json");
+        if wf_path.exists()
+            && let Ok(wf_raw) = fs::read_to_string(wf_path)
+            && let Ok(wfs) = serde_json::from_str::<Vec<WorkflowGuide>>(&wf_raw)
+        {
+            kb.workflows = wfs;
         }
+        return Some(kb);
     }
     None
 }
@@ -316,7 +451,9 @@ pub fn load_knowledge(local_base: &Path) -> Option<KnowledgeBase> {
 pub fn generate_markdown_feature_map(kb: &KnowledgeBase) -> String {
     let mut out = String::new();
     out.push_str("# Heald Learned Codebase & Feature Navigator\n\n");
-    out.push_str("Generated by `heald learn`. Fast index of features, primary files, and functions.\n\n");
+    out.push_str(
+        "Generated by `heald learn`. Fast index of features, primary files, and functions.\n\n",
+    );
 
     for feat in &kb.features {
         out.push_str(&format!("## Feature: {}\n\n", feat.name));
@@ -326,7 +463,10 @@ pub fn generate_markdown_feature_map(kb: &KnowledgeBase) -> String {
                 out.push_str("  *(Primary file for this feature)*\n");
             } else {
                 for sym in &file.symbols {
-                    out.push_str(&format!("  - `{}` [{}] (line {})\n", sym.name, sym.kind, sym.line));
+                    out.push_str(&format!(
+                        "  - `{}` [{}] (line {})\n",
+                        sym.name, sym.kind, sym.line
+                    ));
                 }
             }
             out.push('\n');
@@ -356,8 +496,17 @@ pub fn generate_markdown_feature_map(kb: &KnowledgeBase) -> String {
     out
 }
 
+pub type QueryMatchResult<'a> = (
+    &'a LearnedFeature,
+    Vec<(&'a LearnedFile, Vec<&'a SymbolInfo>)>,
+    f64,
+);
+
 /// Search knowledge base for relevant feature, files, and functions
-pub fn query_knowledge<'a>(kb: &'a KnowledgeBase, query: &str) -> Vec<(&'a LearnedFeature, Vec<(&'a LearnedFile, Vec<&'a SymbolInfo>)>, f64)> {
+pub fn query_knowledge<'a>(
+    kb: &'a KnowledgeBase,
+    query: &str,
+) -> Vec<QueryMatchResult<'a>> {
     let q_tokens = tokenize(query);
     let mut scored_results = Vec::new();
 
@@ -428,11 +577,11 @@ pub fn auto_learn_from_git(summary: &str) {
 
     // Attempt to run git diff --name-only HEAD~1 or git status --porcelain
     let git_out = std::process::Command::new("git")
-        .args(&["diff", "--name-only", "HEAD~1"])
+        .args(["diff", "--name-only", "HEAD~1"])
         .output()
         .or_else(|_| {
             std::process::Command::new("git")
-                .args(&["status", "--porcelain"])
+                .args(["status", "--porcelain"])
                 .output()
         });
 
@@ -440,8 +589,21 @@ pub fn auto_learn_from_git(summary: &str) {
         Ok(out) if out.status.success() => {
             let s = String::from_utf8_lossy(&out.stdout);
             s.lines()
-                .map(|l| l.trim_start_matches(|c: char| c.is_whitespace() || c == 'M' || c == 'A' || c == '?').trim().to_string())
-                .filter(|f| !f.is_empty() && (f.ends_with(".ts") || f.ends_with(".tsx") || f.ends_with(".rs") || f.ends_with(".py") || f.ends_with(".go")))
+                .map(|l| {
+                    l.trim_start_matches(|c: char| {
+                        c.is_whitespace() || c == 'M' || c == 'A' || c == '?'
+                    })
+                    .trim()
+                    .to_string()
+                })
+                .filter(|f| {
+                    !f.is_empty()
+                        && (f.ends_with(".ts")
+                            || f.ends_with(".tsx")
+                            || f.ends_with(".rs")
+                            || f.ends_with(".py")
+                            || f.ends_with(".go"))
+                })
                 .collect()
         }
         _ => Vec::new(),
@@ -451,13 +613,7 @@ pub fn auto_learn_from_git(summary: &str) {
         return;
     }
 
-    record_learning_workflow(
-        &local_base,
-        None,
-        &touched_files,
-        None,
-        summary,
-    );
+    record_learning_workflow(&local_base, None, &touched_files, None, summary);
 }
 
 /// Record a learning workflow entry
@@ -526,7 +682,10 @@ pub fn run(
         let notes_str = notes.unwrap_or("Learned pattern");
         let file_list = files.unwrap_or(&[]);
         record_learning_workflow(&local_base, feature, file_list, None, notes_str);
-        println!("Recorded workflow learning for feature '{}'.", feature.unwrap_or("Auto"));
+        println!(
+            "Recorded workflow learning for feature '{}'.",
+            feature.unwrap_or("Auto")
+        );
         return;
     }
 
@@ -561,7 +720,10 @@ pub fn run(
             return;
         }
 
-        println!("=== Heald Code Navigation & Learned Guidance for '{}' ===\n", q);
+        println!(
+            "=== Heald Code Navigation & Learned Guidance for '{}' ===\n",
+            q
+        );
         for (feat, matched_files, _score) in matches.into_iter().take(3) {
             println!("🎯 Feature: {}", feat.name);
             println!("📁 Files to inspect:");
@@ -579,7 +741,11 @@ pub fn run(
             }
 
             // Check if any workflows exist for this feature
-            let feature_wfs: Vec<&WorkflowGuide> = kb.workflows.iter().filter(|w| w.feature == feat.name).collect();
+            let feature_wfs: Vec<&WorkflowGuide> = kb
+                .workflows
+                .iter()
+                .filter(|w| w.feature == feat.name)
+                .collect();
             if !feature_wfs.is_empty() {
                 println!("\n💡 Learned Workflows & What to do:");
                 for wf in feature_wfs {
@@ -590,10 +756,18 @@ pub fn run(
         }
     } else {
         println!("=== Heald Learned Feature Index ===");
-        println!("Run `heald learn <feature-or-query>` to see exact files and functions to modify.\n");
+        println!(
+            "Run `heald learn <feature-or-query>` to see exact files and functions to modify.\n"
+        );
         for feat in &kb.features {
-            let top_files: Vec<String> = feat.files.iter().take(3).map(|f| f.path.clone()).collect();
-            println!("• **{}** ({} files): {}", feat.name, feat.files.len(), top_files.join(", "));
+            let top_files: Vec<String> =
+                feat.files.iter().take(3).map(|f| f.path.clone()).collect();
+            println!(
+                "• **{}** ({} files): {}",
+                feat.name,
+                feat.files.len(),
+                top_files.join(", ")
+            );
         }
     }
 }

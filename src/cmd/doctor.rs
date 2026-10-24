@@ -39,16 +39,19 @@ fn check_dir(dir: &Path) -> bool {
     if !dir.exists() {
         return false;
     }
-    
+
     // Check all markdown files recursively
-    let walker = walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok());
+    let walker = walkdir::WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok());
     for entry in walker {
         let path = entry.path();
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-            if let Err(e) = Document::from_file(path) {
-                println!("ERROR in {}: {}", path.display(), e);
-                has_errors = true;
-            }
+        if path.is_file()
+            && path.extension().and_then(|s| s.to_str()) == Some("md")
+            && let Err(e) = Document::from_file(path)
+        {
+            println!("ERROR in {}: {}", path.display(), e);
+            has_errors = true;
         }
     }
     has_errors
@@ -67,17 +70,24 @@ pub fn validate_memory_integrity(local_base: &Path, project_root: &Path) -> (boo
     let mut file_touch_map: HashMap<String, Vec<(String, String)>> = HashMap::new();
 
     let memory_dir = local_base.join("memory");
+    let link_regex = regex::Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
 
     for (doc_path, doc) in &docs {
-        let doc_filename = doc_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let doc_filename = doc_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let doc_title = doc.frontmatter.effective_title().to_string();
 
         // 1. Check markdown link targets [text](target)
-        let link_regex = regex::Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
         for cap in link_regex.captures_iter(&doc.content) {
             let target = &cap[2];
             // Skip http/https and anchors
-            if target.starts_with("http://") || target.starts_with("https://") || target.starts_with('#') {
+            if target.starts_with("http://")
+                || target.starts_with("https://")
+                || target.starts_with('#')
+            {
                 continue;
             }
 
@@ -106,7 +116,10 @@ pub fn validate_memory_integrity(local_base: &Path, project_root: &Path) -> (boo
                 );
                 warnings_count += 1;
             } else {
-                file_touch_map.entry(path_str).or_default().push((doc_filename.clone(), doc_title.clone()));
+                file_touch_map
+                    .entry(path_str)
+                    .or_default()
+                    .push((doc_filename.clone(), doc_title.clone()));
             }
         }
     }
@@ -114,7 +127,10 @@ pub fn validate_memory_integrity(local_base: &Path, project_root: &Path) -> (boo
     // 3. Check conflicting decisions (multiple decisions referencing the same file)
     for (path_str, touched_docs) in file_touch_map {
         if touched_docs.len() > 1 {
-            let doc_names: Vec<String> = touched_docs.iter().map(|(fname, _)| fname.clone()).collect();
+            let doc_names: Vec<String> = touched_docs
+                .iter()
+                .map(|(fname, _)| fname.clone())
+                .collect();
             println!(
                 "WARNING (Potential Conflict): Multiple memory decisions touch '{}': [{}]",
                 path_str,
@@ -126,4 +142,3 @@ pub fn validate_memory_integrity(local_base: &Path, project_root: &Path) -> (boo
 
     (has_errors, warnings_count)
 }
-

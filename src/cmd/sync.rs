@@ -41,11 +41,10 @@ fn load_all_docs(dir: &Path) -> Vec<crate::okf::Document> {
     let walker = walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok());
     for entry in walker {
         let path = entry.path();
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-            if let Ok(doc) = crate::okf::Document::from_file(path) {
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md")
+            && let Ok(doc) = crate::okf::Document::from_file(path) {
                 docs.push(doc);
             }
-        }
     }
     docs
 }

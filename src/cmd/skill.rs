@@ -6,7 +6,11 @@ pub fn run(cmd: &crate::SkillCommands) {
     match cmd {
         crate::SkillCommands::List { global, local } => list_skills(*global, *local),
         crate::SkillCommands::Search { query } => search_skills(query),
-        crate::SkillCommands::Install { source, name, global } => install_skill(source, name.as_deref(), *global),
+        crate::SkillCommands::Install {
+            source,
+            name,
+            global,
+        } => install_skill(source, name.as_deref(), *global),
         crate::SkillCommands::Info { name } => show_skill_info(name),
     }
 }
@@ -20,8 +24,14 @@ pub struct SkillEntry {
 
 pub fn load_installed_skills(include_global: bool, include_local: bool) -> Vec<SkillEntry> {
     let mut skills = Vec::new();
-    let global_base = dirs::home_dir().unwrap_or_default().join(".heald").join("skills");
-    let local_base = std::env::current_dir().unwrap_or_default().join(".heald").join("skills");
+    let global_base = dirs::home_dir()
+        .unwrap_or_default()
+        .join(".heald")
+        .join("skills");
+    let local_base = std::env::current_dir()
+        .unwrap_or_default()
+        .join(".heald")
+        .join("skills");
 
     if include_global && global_base.exists() {
         collect_skills_from_dir(&global_base, true, &mut skills);
@@ -30,15 +40,17 @@ pub fn load_installed_skills(include_global: bool, include_local: bool) -> Vec<S
         collect_skills_from_dir(&local_base, false, &mut skills);
     }
 
-    skills.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    skills.sort_by_key(|a| a.name.to_lowercase());
     skills
 }
 
 fn collect_skills_from_dir(dir: &Path, is_global: bool, results: &mut Vec<SkillEntry>) {
-    let walker = walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok());
+    let walker = walkdir::WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok());
     for entry in walker {
         let p = entry.path();
-        if p.is_file() && p.extension().map_or(false, |ext| ext == "md" || ext == "mdc") {
+        if p.is_file() && p.extension().is_some_and(|ext| ext == "md" || ext == "mdc") {
             let stem = p.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             if stem.eq_ignore_ascii_case("index") || stem.eq_ignore_ascii_case("log") {
                 continue;
@@ -69,16 +81,23 @@ pub fn list_skills(only_global: bool, only_local: bool) {
         return;
     }
 
-    println!("{:<24} {:<8} {:<40}", "SKILL", "SCOPE", "DESCRIPTION / TRIGGERS");
+    println!(
+        "{:<24} {:<8} {:<40}",
+        "SKILL", "SCOPE", "DESCRIPTION / TRIGGERS"
+    );
     println!("{:-<24} {:-<8} {:-<40}", "", "", "");
 
     for skill in skills {
         let scope = if skill.is_global { "global" } else { "local" };
-        let triggers = skill.doc.frontmatter.triggers.as_ref()
+        let triggers = skill
+            .doc
+            .frontmatter
+            .triggers
+            .as_ref()
             .map(|t| t.join(", "))
             .or_else(|| skill.doc.frontmatter.description.clone())
             .unwrap_or_else(|| "-".to_string());
-        
+
         let desc_display = if triggers.len() > 50 {
             format!("{}...", &triggers[..47])
         } else {
@@ -93,17 +112,24 @@ pub fn search_skills(query: &str) {
     let query_lower = query.to_lowercase();
     let skills = load_installed_skills(true, true);
 
-    let matches: Vec<&SkillEntry> = skills
-        .iter()
-        .filter(|s| {
-            s.name.to_lowercase().contains(&query_lower)
-                || s.doc.frontmatter.description.as_deref().unwrap_or("").to_lowercase().contains(&query_lower)
-                || s.doc.frontmatter.triggers.as_ref().map_or(false, |tr| {
-                    tr.iter().any(|t| t.to_lowercase().contains(&query_lower))
-                })
-                || s.doc.content.to_lowercase().contains(&query_lower)
-        })
-        .collect();
+    let matches: Vec<&SkillEntry> =
+        skills
+            .iter()
+            .filter(|s| {
+                s.name.to_lowercase().contains(&query_lower)
+                    || s.doc
+                        .frontmatter
+                        .description
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase()
+                        .contains(&query_lower)
+                    || s.doc.frontmatter.triggers.as_ref().is_some_and(|tr| {
+                        tr.iter().any(|t| t.to_lowercase().contains(&query_lower))
+                    })
+                    || s.doc.content.to_lowercase().contains(&query_lower)
+            })
+            .collect();
 
     if matches.is_empty() {
         println!("No skills matching \"{}\".", query);
@@ -113,7 +139,11 @@ pub fn search_skills(query: &str) {
     println!("Found {} skill(s) matching \"{}\":\n", matches.len(), query);
     for s in matches {
         let scope = if s.is_global { "global" } else { "local" };
-        let triggers = s.doc.frontmatter.triggers.as_ref()
+        let triggers = s
+            .doc
+            .frontmatter
+            .triggers
+            .as_ref()
             .map(|t| t.join(", "))
             .or_else(|| s.doc.frontmatter.description.clone())
             .unwrap_or_else(|| "-".to_string());
@@ -129,14 +159,23 @@ pub fn show_skill_info(name: &str) {
     let skills = load_installed_skills(true, true);
 
     let found = skills.iter().find(|s| {
-        let stem = s.path.file_stem().and_then(|st| st.to_str()).unwrap_or("").to_lowercase();
+        let stem = s
+            .path
+            .file_stem()
+            .and_then(|st| st.to_str())
+            .unwrap_or("")
+            .to_lowercase();
         s.name.to_lowercase() == name_lower || stem == name_lower
     });
 
     match found {
         Some(s) => {
             println!("Skill:       {}", s.name);
-            println!("Location:    {} ({})", s.path.display(), if s.is_global { "global" } else { "local" });
+            println!(
+                "Location:    {} ({})",
+                s.path.display(),
+                if s.is_global { "global" } else { "local" }
+            );
             if let Some(desc) = &s.doc.frontmatter.description {
                 println!("Description: {}", desc);
             }
@@ -149,7 +188,10 @@ pub fn show_skill_info(name: &str) {
             println!("\n--- Content ---\n{}", s.doc.content);
         }
         None => {
-            eprintln!("Skill \"{}\" not found. Run `heald skill list` to view available skills.", name);
+            eprintln!(
+                "Skill \"{}\" not found. Run `heald skill list` to view available skills.",
+                name
+            );
             std::process::exit(1);
         }
     }
@@ -157,25 +199,40 @@ pub fn show_skill_info(name: &str) {
 
 pub fn install_skill(source: &str, name_opt: Option<&str>, is_global: bool) {
     let target_dir = if is_global {
-        let p = dirs::home_dir().unwrap_or_default().join(".heald").join("skills");
+        let p = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".heald")
+            .join("skills");
         std::fs::create_dir_all(&p).unwrap();
         p
     } else {
-        let p = std::env::current_dir().unwrap_or_default().join(".heald").join("skills");
+        let p = std::env::current_dir()
+            .unwrap_or_default()
+            .join(".heald")
+            .join("skills");
         std::fs::create_dir_all(&p).unwrap();
         p
     };
 
-    let (raw_content, inferred_name) = if source.len() < 260 && Path::new(source).exists() && Path::new(source).is_file() {
+    let (raw_content, inferred_name) = if source.len() < 260
+        && Path::new(source).exists()
+        && Path::new(source).is_file()
+    {
         let source_path = Path::new(source);
         let content = std::fs::read_to_string(source_path).unwrap_or_else(|e| {
             eprintln!("ERROR: Failed to read source file {}: {}", source, e);
             std::process::exit(1);
         });
-        let stem = source_path.file_stem().and_then(|s| s.to_str()).unwrap_or("skill").to_string();
+        let stem = source_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("skill")
+            .to_string();
         (content, stem)
     } else if source.starts_with("http://") || source.starts_with("https://") {
-        eprintln!("ERROR: Remote URL downloading is not currently configured. Please provide a local file or raw markdown content.");
+        eprintln!(
+            "ERROR: Remote URL downloading is not currently configured. Please provide a local file or raw markdown content."
+        );
         std::process::exit(1);
     } else {
         // Raw content passed directly
@@ -183,18 +240,20 @@ pub fn install_skill(source: &str, name_opt: Option<&str>, is_global: bool) {
         (source.to_string(), stem)
     };
 
-
     let final_name = name_opt.map(|s| s.to_string()).unwrap_or(inferred_name);
-    let slug = final_name.to_lowercase().replace(' ', "-").chars().filter(|c| c.is_alphanumeric() || *c == '-').collect::<String>();
+    let slug = final_name
+        .to_lowercase()
+        .replace(' ', "-")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .collect::<String>();
 
     let content_to_write = if raw_content.trim_start().starts_with("---") {
         raw_content
     } else {
         format!(
-            "---\ntype: skill\ntitle: \"{}\"\ndescription: \"{}\"\n---\n\n{}",
-            final_name,
-            format!("Skill: {}", final_name),
-            raw_content
+            "---\ntype: skill\ntitle: \"{}\"\ndescription: \"Skill: {}\"\n---\n\n{}",
+            final_name, final_name, raw_content
         )
     };
 
@@ -204,7 +263,12 @@ pub fn install_skill(source: &str, name_opt: Option<&str>, is_global: bool) {
         std::process::exit(1);
     }
 
-    println!("Installed skill '{}' to {} ({})", final_name, dest.display(), if is_global { "global" } else { "local" });
+    println!(
+        "Installed skill '{}' to {} ({})",
+        final_name,
+        dest.display(),
+        if is_global { "global" } else { "local" }
+    );
 
     // Trigger sync to update AGENTS.md routing table
     crate::cmd::sync::run(None, true);

@@ -223,17 +223,15 @@ pub fn format_compact_doc(doc: &Document) -> String {
 
 fn score(doc: &Document) -> i32 {
     let mut s = 0;
-    if let Some(tags) = &doc.frontmatter.tags {
-        if tags.iter().any(|t| t == "pinned") {
+    if let Some(tags) = &doc.frontmatter.tags
+        && tags.iter().any(|t| t == "pinned") {
             s += 1000;
         }
-    }
-    if let Some(ts) = &doc.frontmatter.timestamp {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
+    if let Some(ts) = &doc.frontmatter.timestamp
+        && let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
             let days = (chrono::Utc::now() - dt.with_timezone(&chrono::Utc)).num_days();
             s += (100 - days).max(0) as i32;
         }
-    }
     s
 }
 

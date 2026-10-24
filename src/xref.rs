@@ -20,12 +20,11 @@ pub fn get_memory_docs(local_base: &Path) -> Vec<(PathBuf, Document)> {
                 if path.components().any(|c| c.as_os_str() == "archive") {
                     continue;
                 }
-                if let Ok(doc) = Document::from_file(path) {
-                    if path.file_name().and_then(|n| n.to_str()) != Some("index.md") &&
+                if let Ok(doc) = Document::from_file(path)
+                    && path.file_name().and_then(|n| n.to_str()) != Some("index.md") &&
                        path.file_name().and_then(|n| n.to_str()) != Some("log.md") {
                         docs.push((path.to_path_buf(), doc));
                     }
-                }
             }
         }
 
@@ -43,8 +42,8 @@ pub fn get_memory_docs(local_base: &Path) -> Vec<(PathBuf, Document)> {
 
 pub fn normalize_path(path: &str) -> String {
     let path = path.replace("\\", "/");
-    let path = path.strip_prefix("./").unwrap_or(&path).to_string();
-    path
+    
+    path.strip_prefix("./").unwrap_or(&path).to_string()
 }
 
 pub fn extract_snippet(content: &str, path: &str) -> Option<String> {

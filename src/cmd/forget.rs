@@ -21,7 +21,7 @@ pub fn run(query: &str, yes: bool) {
 
     let walker = walkdir::WalkDir::new(&memory_dir).into_iter().filter_map(|e| e.ok());
     for entry in walker {
-        if entry.file_type().is_file() && entry.path().extension().map_or(false, |ext| ext == "md") {
+        if entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "md") {
             let file_stem = entry.path().file_stem().unwrap().to_str().unwrap();
             
             if file_stem == "log" || file_stem == "index" {

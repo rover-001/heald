@@ -15,7 +15,7 @@ fn test_blame_one_file() {
     fs::write(mem_dir.join("test-doc-1.md"), "---\ntitle: Test Doc 1\ntimestamp: 2026-08-09T00:00:00Z\ntype: decision\n---\nWe decided to use src/auth.rs for auth.\n").unwrap();
     
     let output = Command::new(get_bin())
-        .args(&["blame", "src/auth.rs"])
+        .args(["blame", "src/auth.rs"])
         .output()
         .expect("failed to execute");
     
@@ -37,7 +37,7 @@ fn test_blame_multiple_docs_ordering() {
     fs::write(mem_dir.join("test-doc-new.md"), "---\ntitle: New Doc\ntimestamp: 2026-08-10T00:00:00Z\ntype: decision\n---\nRef src/auth.rs newer.\n").unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["blame", "src/auth.rs"])
+        .args(["blame", "src/auth.rs"])
         .output()
         .expect("failed to execute");
     
@@ -53,7 +53,7 @@ fn test_blame_multiple_docs_ordering() {
 #[test]
 fn test_blame_zero_refs() {
     let output = Command::new(get_bin())
-        .args(&["blame", "src/nonexistent.rs"])
+        .args(["blame", "src/nonexistent.rs"])
         .output()
         .expect("failed to execute");
     
@@ -71,7 +71,7 @@ fn test_blame_directory() {
     fs::write(mem_dir.join("test-doc-cmd.md"), "---\ntimestamp: 2026-08-10T00:00:00Z\ntype: decision\n---\nWe touch src/cmd/map.rs here.\n").unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["blame", "src/cmd"])
+        .args(["blame", "src/cmd"])
         .output()
         .expect("failed to execute");
     
@@ -84,7 +84,7 @@ fn test_blame_directory() {
 #[test]
 fn test_blame_json() {
     let output = Command::new(get_bin())
-        .args(&["blame", "src/auth.rs", "--json"])
+        .args(["blame", "src/auth.rs", "--json"])
         .output()
         .expect("failed to execute");
     
@@ -102,7 +102,7 @@ fn test_blame_json() {
 fn test_map_against_repo() {
     // Run map
     let output = Command::new(get_bin())
-        .args(&["map"])
+        .args(["map"])
         .output()
         .expect("failed to execute");
     
@@ -132,7 +132,7 @@ fn test_context_and_memory_index() {
     ).unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["context", "agents"])
+        .args(["context", "agents"])
         .output()
         .expect("failed to execute");
 
@@ -152,7 +152,7 @@ fn test_context_and_memory_index() {
 #[test]
 fn test_skill_commands_lifecycle() {
     let output_list = Command::new(get_bin())
-        .args(&["skill", "list"])
+        .args(["skill", "list"])
         .output()
         .expect("failed to execute");
     assert!(output_list.status.success());
@@ -163,7 +163,7 @@ fn test_skill_commands_lifecycle() {
     fs::write(&temp_skill_file, test_skill_content).unwrap();
 
     let output_install = Command::new(get_bin())
-        .args(&["skill", "install", temp_skill_file.to_str().unwrap(), "--name", "test-search-skill"])
+        .args(["skill", "install", temp_skill_file.to_str().unwrap(), "--name", "test-search-skill"])
         .output()
         .expect("failed to execute");
     let _ = fs::remove_file(&temp_skill_file);
@@ -171,7 +171,7 @@ fn test_skill_commands_lifecycle() {
 
     // Test search
     let output_search = Command::new(get_bin())
-        .args(&["skill", "search", "testing-search"])
+        .args(["skill", "search", "testing-search"])
         .output()
         .expect("failed to execute");
     assert!(output_search.status.success());
@@ -180,7 +180,7 @@ fn test_skill_commands_lifecycle() {
 
     // Test info
     let output_info = Command::new(get_bin())
-        .args(&["skill", "info", "test-search-skill"])
+        .args(["skill", "info", "test-search-skill"])
         .output()
         .expect("failed to execute");
     assert!(output_info.status.success());
@@ -194,7 +194,7 @@ fn test_mcp_server_stdio_interaction() {
     use std::process::Stdio;
 
     let mut child = Command::new(get_bin())
-        .args(&["mcp"])
+        .args(["mcp"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -281,7 +281,7 @@ fn test_mcp_server_stdio_interaction() {
 #[test]
 fn test_context_compact_mode() {
     let output = Command::new(get_bin())
-        .args(&["context", "agents", "--compact"])
+        .args(["context", "agents", "--compact"])
         .output()
         .expect("failed to execute");
 
@@ -309,7 +309,7 @@ fn test_context_relevant_query_bm25() {
 
     // Query for auth should rank jwt-auth-decision above database-migration-decision
     let output = Command::new(get_bin())
-        .args(&["context", "agents", "--relevant", "authentication token refresh"])
+        .args(["context", "agents", "--relevant", "authentication token refresh"])
         .output()
         .expect("failed to execute");
 
@@ -348,7 +348,7 @@ fn test_compact_command_dedup_and_archive() {
     ).unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["compact"])
+        .args(["compact"])
         .output()
         .expect("failed to execute");
 
@@ -382,7 +382,7 @@ fn test_doctor_validations() {
     ).unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["doctor"])
+        .args(["doctor"])
         .output()
         .expect("failed to execute");
 
@@ -416,7 +416,7 @@ fn test_clean_clustering_and_pruning() {
     ).unwrap();
 
     let output = Command::new(get_bin())
-        .args(&["clean", "--threshold", "2"])
+        .args(["clean", "--threshold", "2"])
         .output()
         .expect("failed to execute");
 
@@ -444,7 +444,7 @@ fn test_clean_clustering_and_pruning() {
 fn test_learn_scan_and_query() {
     // Run learn --scan on current repo
     let output_scan = Command::new(get_bin())
-        .args(&["learn", "--scan"])
+        .args(["learn", "--scan"])
         .output()
         .expect("failed to execute");
 
@@ -458,7 +458,7 @@ fn test_learn_scan_and_query() {
 
     // Run learn query
     let output_query = Command::new(get_bin())
-        .args(&["learn", "clean"])
+        .args(["learn", "clean"])
         .output()
         .expect("failed to execute");
 
@@ -468,7 +468,7 @@ fn test_learn_scan_and_query() {
 
     // Test record workflow
     let output_record = Command::new(get_bin())
-        .args(&["learn", "--record", "--feature", "Testing", "--notes", "Run cargo test before pushing"])
+        .args(["learn", "--record", "--feature", "Testing", "--notes", "Run cargo test before pushing"])
         .output()
         .expect("failed to execute");
 

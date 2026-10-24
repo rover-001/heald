@@ -1,10 +1,10 @@
+use crate::okf::Document;
+use crate::xref::{extract_referenced_paths, get_memory_docs};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use crate::okf::Document;
-use crate::xref::{extract_referenced_paths, get_memory_docs};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterSummary {
@@ -16,46 +16,226 @@ pub struct ClusterSummary {
 
 /// Known domain definitions with keyword stems for grouping memories.
 const DOMAIN_RULES: &[(&str, &[&str])] = &[
-    ("Calendar & Recurring Tasks", &[
-        "calendar", "recurring", "schedule", "dayplan", "agenda", "template", "multiday", "multi-day", "date"
-    ]),
-    ("SQLite DB & Concurrency", &[
-        "sqlite", "wal", "locking", "transaction", "concurrency", "retry", "database", "pragma"
-    ]),
-    ("Cloud Sync & Tombstones", &[
-        "sync", "cloud", "tombstone", "turso", "lww", "deleted_at", "backfill", "cursor"
-    ]),
-    ("AI Mascot & Voice Assistant", &[
-        "mascot", "floating", "zeno", "voice", "gemini", "assistant", "ai chat", "shift_task", "intent", "insights", "ai insights", "dismissal"
-    ]),
-    ("Social Integrations & OAuth", &[
-        "oauth", "instagram", "youtube", "pinterest", "meta", "social", "connection", "accounts", "avatar", "token", "account", "accountid", "profile", "retry", "sequence"
-    ]),
-    ("DM Automation & Webhooks", &[
-        "inbox", "dm", "unibox", "automation", "webhook", "responder", "follower", "reply"
-    ]),
-    ("Email Synchronization & Polling", &[
-        "email", "imap", "smtp", "zoho", "outlook", "polling"
-    ]),
-    ("UI System & Theme", &[
-        "theme", "dark", "light", "white", "color", "styling", "css", "tailwind", "layout", "bottom bar", "navbar", "modal", "slider", "card", "viewfinder",
-        "header", "mobile", "drawer", "picker", "icon", "icons", "border", "dropdown", "bottom sheet", "navigation", "animation", "nav", "bar", "home page", "figma", "boxes", "transparent", "logo", "screen", "rendering", "ui", "wheel", "select", "optical", "shell"
-    ]),
-    ("Android Mobile & Release", &[
-        "release", "keystore", "play", "signing", "bundle", "apk", "aab", "version", "proguard", "r8", "gradle", "capacitor", "intent://", "android", "adb", "sync-run", "app name"
-    ]),
-    ("Legal & Account Compliance", &[
-        "deletion", "privacy", "terms", "legal", "compliance", "herenow", "webpage"
-    ]),
-    ("CRM & Campaigns", &[
-        "campaign", "lead", "crm", "contact", "audience"
-    ]),
-    ("Content & Media Creator", &[
-        "content", "post", "video", "upload", "camera", "media", "editor", "viewfinder", "reel", "story", "stories"
-    ]),
-    ("Backend & Deployment", &[
-        "convex", "vite", "build", "compiler", "vercel", "deploy", "server", "endpoint", "api", "environment", "env", "architecture", "modular", "zustand", "store", "state management", "route", "routes", "workspace", "folder", "authentication", "auth"
-    ]),
+    (
+        "Calendar & Recurring Tasks",
+        &[
+            "calendar",
+            "recurring",
+            "schedule",
+            "dayplan",
+            "agenda",
+            "template",
+            "multiday",
+            "multi-day",
+            "date",
+        ],
+    ),
+    (
+        "SQLite DB & Concurrency",
+        &[
+            "sqlite",
+            "wal",
+            "locking",
+            "transaction",
+            "concurrency",
+            "retry",
+            "database",
+            "pragma",
+        ],
+    ),
+    (
+        "Cloud Sync & Tombstones",
+        &[
+            "sync",
+            "cloud",
+            "tombstone",
+            "turso",
+            "lww",
+            "deleted_at",
+            "backfill",
+            "cursor",
+        ],
+    ),
+    (
+        "AI Mascot & Voice Assistant",
+        &[
+            "mascot",
+            "floating",
+            "zeno",
+            "voice",
+            "gemini",
+            "assistant",
+            "ai chat",
+            "shift_task",
+            "intent",
+            "insights",
+            "ai insights",
+            "dismissal",
+        ],
+    ),
+    (
+        "Social Integrations & OAuth",
+        &[
+            "oauth",
+            "instagram",
+            "youtube",
+            "pinterest",
+            "meta",
+            "social",
+            "connection",
+            "accounts",
+            "avatar",
+            "token",
+            "account",
+            "accountid",
+            "profile",
+            "retry",
+            "sequence",
+        ],
+    ),
+    (
+        "DM Automation & Webhooks",
+        &[
+            "inbox",
+            "dm",
+            "unibox",
+            "automation",
+            "webhook",
+            "responder",
+            "follower",
+            "reply",
+        ],
+    ),
+    (
+        "Email Synchronization & Polling",
+        &["email", "imap", "smtp", "zoho", "outlook", "polling"],
+    ),
+    (
+        "UI System & Theme",
+        &[
+            "theme",
+            "dark",
+            "light",
+            "white",
+            "color",
+            "styling",
+            "css",
+            "tailwind",
+            "layout",
+            "bottom bar",
+            "navbar",
+            "modal",
+            "slider",
+            "card",
+            "viewfinder",
+            "header",
+            "mobile",
+            "drawer",
+            "picker",
+            "icon",
+            "icons",
+            "border",
+            "dropdown",
+            "bottom sheet",
+            "navigation",
+            "animation",
+            "nav",
+            "bar",
+            "home page",
+            "figma",
+            "boxes",
+            "transparent",
+            "logo",
+            "screen",
+            "rendering",
+            "ui",
+            "wheel",
+            "select",
+            "optical",
+            "shell",
+        ],
+    ),
+    (
+        "Android Mobile & Release",
+        &[
+            "release",
+            "keystore",
+            "play",
+            "signing",
+            "bundle",
+            "apk",
+            "aab",
+            "version",
+            "proguard",
+            "r8",
+            "gradle",
+            "capacitor",
+            "intent://",
+            "android",
+            "adb",
+            "sync-run",
+            "app name",
+        ],
+    ),
+    (
+        "Legal & Account Compliance",
+        &[
+            "deletion",
+            "privacy",
+            "terms",
+            "legal",
+            "compliance",
+            "herenow",
+            "webpage",
+        ],
+    ),
+    (
+        "CRM & Campaigns",
+        &["campaign", "lead", "crm", "contact", "audience"],
+    ),
+    (
+        "Content & Media Creator",
+        &[
+            "content",
+            "post",
+            "video",
+            "upload",
+            "camera",
+            "media",
+            "editor",
+            "viewfinder",
+            "reel",
+            "story",
+            "stories",
+        ],
+    ),
+    (
+        "Backend & Deployment",
+        &[
+            "convex",
+            "vite",
+            "build",
+            "compiler",
+            "vercel",
+            "deploy",
+            "server",
+            "endpoint",
+            "api",
+            "environment",
+            "env",
+            "architecture",
+            "modular",
+            "zustand",
+            "store",
+            "state management",
+            "route",
+            "routes",
+            "workspace",
+            "folder",
+            "authentication",
+            "auth",
+        ],
+    ),
 ];
 
 /// Check if a document is an ephemeral or trivial micro-record that doesn't need to be an active decision.
@@ -85,7 +265,8 @@ pub fn is_trivial_or_ephemeral(title: &str, content: &str) -> bool {
     }
 
     // Installed skill announcement docs
-    if lower_title.starts_with("installed ") && lower_title.contains("skill") && content.len() < 300 {
+    if lower_title.starts_with("installed ") && lower_title.contains("skill") && content.len() < 300
+    {
         return true;
     }
 
@@ -99,7 +280,10 @@ pub fn detect_repealed_docs(docs: &[(PathBuf, Document)]) -> HashSet<PathBuf> {
 
     for (path, doc) in docs {
         let title = doc.frontmatter.effective_title().to_lowercase();
-        if title.starts_with("removed ") || title.starts_with("deleted ") || title.starts_with("reverted ") {
+        if title.starts_with("removed ")
+            || title.starts_with("deleted ")
+            || title.starts_with("reverted ")
+        {
             let target = title
                 .trim_start_matches("removed ")
                 .trim_start_matches("deleted ")
@@ -184,14 +368,14 @@ pub fn match_domain(title: &str, content: &str, file_refs: &[String]) -> Option<
     None
 }
 
-/// Cluster documents into logical domains.
-pub fn cluster_documents(
-    docs: Vec<(PathBuf, Document)>,
-) -> (
+pub type ClusteredDocs = (
     HashMap<String, Vec<(PathBuf, Document)>>, // domain -> docs
-    Vec<(PathBuf, Document)>,                 // standalone docs that don't cluster
-    Vec<(PathBuf, String)>,                   // docs to prune/archive directly
-) {
+    Vec<(PathBuf, Document)>,                  // standalone docs that don't cluster
+    Vec<(PathBuf, String)>,                    // docs to prune/archive directly
+);
+
+/// Cluster documents into logical domains.
+pub fn cluster_documents(docs: Vec<(PathBuf, Document)>) -> ClusteredDocs {
     let repealed = detect_repealed_docs(&docs);
     let mut to_prune = Vec::new();
     let mut candidate_docs = Vec::new();
@@ -216,7 +400,11 @@ pub fn cluster_documents(
     for (path, doc) in candidate_docs {
         let title = doc.frontmatter.effective_title();
         // If already consolidated, treat it as its domain anchor
-        if doc.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated"))
+        if doc
+            .frontmatter
+            .tags
+            .as_ref()
+            .is_some_and(|t| t.iter().any(|x| x == "consolidated"))
             || title.starts_with("Consolidated: ")
         {
             let domain = title.trim_start_matches("Consolidated: ").to_string();
@@ -226,7 +414,10 @@ pub fn cluster_documents(
 
         let file_refs = extract_referenced_paths(&doc.content);
         if let Some(domain) = match_domain(title, &doc.content, &file_refs) {
-            clusters.entry(domain.to_string()).or_default().push((path, doc));
+            clusters
+                .entry(domain.to_string())
+                .or_default()
+                .push((path, doc));
         } else {
             standalone.push((path, doc));
         }
@@ -244,8 +435,12 @@ pub fn synthesize_cluster(
     docs.sort_by(|a, b| {
         let ts_a = a.1.frontmatter.timestamp.as_deref().unwrap_or("");
         let ts_b = b.1.frontmatter.timestamp.as_deref().unwrap_or("");
-        let a_time = DateTime::parse_from_rfc3339(ts_a).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now());
-        let b_time = DateTime::parse_from_rfc3339(ts_b).map(|dt| dt.with_timezone(&Utc)).unwrap_or_else(|_| Utc::now());
+        let a_time = DateTime::parse_from_rfc3339(ts_a)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now());
+        let b_time = DateTime::parse_from_rfc3339(ts_b)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now());
         b_time.cmp(&a_time)
     });
 
@@ -278,7 +473,11 @@ pub fn synthesize_cluster(
         let ts = doc.frontmatter.timestamp.as_deref().unwrap_or("");
         let date_str = if ts.len() >= 10 { &ts[..10] } else { ts };
 
-        let is_consolidated = doc.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated"))
+        let is_consolidated = doc
+            .frontmatter
+            .tags
+            .as_ref()
+            .is_some_and(|t| t.iter().any(|x| x == "consolidated"))
             || d_title.starts_with("Consolidated: ");
 
         if is_consolidated {
@@ -298,14 +497,16 @@ pub fn synthesize_cluster(
                     if !file_str.is_empty() {
                         all_files.insert(file_str.to_string());
                     }
-                } else if trimmed.starts_with("- ") && (trimmed.contains(" — ") || trimmed.starts_with("- 20")) {
+                } else if trimmed.starts_with("- ")
+                    && (trimmed.contains(" — ") || trimmed.starts_with("- 20"))
+                {
                     if !history_entries.contains(&trimmed.to_string()) {
                         history_entries.push(trimmed.to_string());
                     }
-                } else if trimmed.starts_with("- ") {
-                    if !decision_points.contains(&trimmed.to_string()) {
-                        decision_points.push(trimmed.to_string());
-                    }
+                } else if trimmed.starts_with("- ")
+                    && !decision_points.contains(&trimmed.to_string())
+                {
+                    decision_points.push(trimmed.to_string());
                 }
             }
             continue;
@@ -344,11 +545,15 @@ pub fn synthesize_cluster(
     let mut body = String::new();
     body.push_str(&format!(
         "---\ntype: decision\ntitle: \"{}\"\ntimestamp: {}\ntags: [consolidated, \"{}\"]\n---\n\n",
-        title, latest_timestamp, domain.to_lowercase().replace(' ', "-")
+        title,
+        latest_timestamp,
+        domain.to_lowercase().replace(' ', "-")
     ));
 
     body.push_str(&format!("# {}\n\n", title));
-    body.push_str("Consolidated architectural decisions, system invariants, and implementation patterns.\n\n");
+    body.push_str(
+        "Consolidated architectural decisions, system invariants, and implementation patterns.\n\n",
+    );
 
     body.push_str("## Core System Decisions & Invariants\n\n");
     if decision_points.is_empty() {
@@ -422,7 +627,11 @@ pub fn run_clean(auto: bool, dry_run: bool, _force: bool, threshold: Option<usiz
     for (path, reason) in to_prune {
         let file_name = path.file_name().unwrap_or_default();
         let target = archive_dir.join(file_name);
-        println!("  - Pruning/Archiving: {} ({})", file_name.to_string_lossy(), reason);
+        println!(
+            "  - Pruning/Archiving: {} ({})",
+            file_name.to_string_lossy(),
+            reason
+        );
         if !dry_run {
             let _ = fs::rename(&path, &target);
         }
@@ -433,8 +642,13 @@ pub fn run_clean(auto: bool, dry_run: bool, _force: bool, threshold: Option<usiz
     let mut consolidated_created = 0;
     for (domain, group) in clusters {
         let is_existing_consolidated = group.iter().any(|(_, d)| {
-            d.frontmatter.tags.as_ref().map_or(false, |t| t.iter().any(|x| x == "consolidated"))
-                || d.frontmatter.effective_title().starts_with("Consolidated: ")
+            d.frontmatter
+                .tags
+                .as_ref()
+                .is_some_and(|t| t.iter().any(|x| x == "consolidated"))
+                || d.frontmatter
+                    .effective_title()
+                    .starts_with("Consolidated: ")
         });
         if group.len() >= 2 || is_existing_consolidated {
             // If it's a single consolidated doc, only rewrite if it needs normalization (duplicate headers)
@@ -453,7 +667,10 @@ pub fn run_clean(auto: bool, dry_run: bool, _force: bool, threshold: Option<usiz
                 "  - Merging {} docs -> '{}' ({})",
                 source_paths.len(),
                 domain,
-                consolidated_file.file_name().unwrap_or_default().to_string_lossy()
+                consolidated_file
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
             );
 
             if !dry_run {
@@ -488,7 +705,9 @@ pub fn run_clean(auto: bool, dry_run: bool, _force: bool, threshold: Option<usiz
     } else {
         println!(
             "Dry run complete: Would archive {} documents into {} consolidated domains. Standalone: {}.",
-            archived_count, consolidated_created, standalone.len()
+            archived_count,
+            consolidated_created,
+            standalone.len()
         );
     }
 
@@ -505,21 +724,42 @@ mod tests {
 
     #[test]
     fn test_is_trivial_or_ephemeral() {
-        assert!(is_trivial_or_ephemeral("Bumped version to 1.0.3", "Updated package.json"));
-        assert!(is_trivial_or_ephemeral("App Release Version 1.0.3", "Bumped Android code"));
-        assert!(is_trivial_or_ephemeral("Removed wallpaper slider plugin", "Removed all wallpaper code"));
-        assert!(!is_trivial_or_ephemeral("SQLite WAL Concurrency and Retry Strategy", "Detailed architecture with exponential backoff..."));
+        assert!(is_trivial_or_ephemeral(
+            "Bumped version to 1.0.3",
+            "Updated package.json"
+        ));
+        assert!(is_trivial_or_ephemeral(
+            "App Release Version 1.0.3",
+            "Bumped Android code"
+        ));
+        assert!(is_trivial_or_ephemeral(
+            "Removed wallpaper slider plugin",
+            "Removed all wallpaper code"
+        ));
+        assert!(!is_trivial_or_ephemeral(
+            "SQLite WAL Concurrency and Retry Strategy",
+            "Detailed architecture with exponential backoff..."
+        ));
     }
 
     #[test]
     fn test_match_domain() {
-        let domain = match_domain("Fixed recurring task calendar pre-population", "useCalendarSchedule", &[]);
+        let domain = match_domain(
+            "Fixed recurring task calendar pre-population",
+            "useCalendarSchedule",
+            &[],
+        );
         assert_eq!(domain, Some("Calendar & Recurring Tasks"));
 
-        let domain_oauth = match_domain("Instagram OAuth Callback and Tokens", "token exchange", &[]);
+        let domain_oauth =
+            match_domain("Instagram OAuth Callback and Tokens", "token exchange", &[]);
         assert_eq!(domain_oauth, Some("Social Integrations & OAuth"));
 
-        let domain_ui = match_domain("Increased capture logo size to 64x64px in mobile header", "", &[]);
+        let domain_ui = match_domain(
+            "Increased capture logo size to 64x64px in mobile header",
+            "",
+            &[],
+        );
         assert_eq!(domain_ui, Some("UI System & Theme"));
     }
 
@@ -564,7 +804,10 @@ Added Instagram OAuth login handler.
         let (slug, body, paths) = synthesize_cluster(
             "Social Integrations & OAuth",
             vec![
-                (PathBuf::from("consolidated-social-integrations-and-oauth.md"), existing_doc),
+                (
+                    PathBuf::from("consolidated-social-integrations-and-oauth.md"),
+                    existing_doc,
+                ),
                 (PathBuf::from("instagram-oauth-flow.md"), new_doc),
             ],
         );
@@ -574,7 +817,11 @@ Added Instagram OAuth login handler.
 
         // Crucial: Verify NO duplicate "# Consolidated:" headers exist in synthesized body!
         assert_eq!(body.matches("# Consolidated:").count(), 1);
-        assert_eq!(body.matches("## Core System Decisions & Invariants").count(), 1);
+        assert_eq!(
+            body.matches("## Core System Decisions & Invariants")
+                .count(),
+            1
+        );
         assert_eq!(body.matches("## Impacted Files & Subsystems").count(), 1);
         assert_eq!(body.matches("## Consolidated Evolution History").count(), 1);
 

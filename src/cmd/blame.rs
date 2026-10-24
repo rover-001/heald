@@ -1,4 +1,4 @@
-use crate::xref::{get_memory_docs, find_references, normalize_path};
+use crate::xref::{find_references, get_memory_docs, normalize_path};
 use serde_json::json;
 use std::path::Path;
 
@@ -12,10 +12,10 @@ pub fn run(path: &str, is_json: bool) {
     if target_path.is_dir() {
         let walker = ignore::WalkBuilder::new(target_path).build();
         for result in walker {
-            if let Ok(entry) = result {
-                if entry.path().is_file() {
-                    files_to_check.push(entry.path().to_path_buf());
-                }
+            if let Ok(entry) = result
+                && entry.path().is_file()
+            {
+                files_to_check.push(entry.path().to_path_buf());
             }
         }
     } else {
@@ -61,7 +61,10 @@ pub fn run(path: &str, is_json: bool) {
     for (file, refs) in all_refs {
         println!("{}", file);
         for r in refs {
-            println!("  {:<20} {:<10} \"{}\"", r.doc_filename, r.timestamp, r.snippet);
+            println!(
+                "  {:<20} {:<10} \"{}\"",
+                r.doc_filename, r.timestamp, r.snippet
+            );
         }
     }
 }

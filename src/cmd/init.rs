@@ -73,7 +73,7 @@ pub fn run(global: bool) {
                 let _ = std::fs::write(&config_path, new_content);
                 println!("Upgraded Heald hook in {}", config_path.display());
             } else if !current.contains("## CRITICAL HEALD INSTRUCTIONS") {
-                let _ = std::fs::write(&config_path, format!("{}{}", current, &hook_text));
+                let _ = std::fs::write(&config_path, format!("{}{}", current, hook_text));
                 println!("Appended Heald hook to {}", config_path.display());
             }
         } else {
@@ -113,8 +113,8 @@ fn import_skills(global_skills_dir: &std::path::Path) {
             
             // Folder-based skills (SkillName/SKILL.md)
             if file_name == "SKILL.md" || file_name == "skill.md" {
-                if let Some(parent) = p.parent() {
-                    if let Some(skill_name) = parent.file_name().and_then(|n| n.to_str()) {
+                if let Some(parent) = p.parent()
+                    && let Some(skill_name) = parent.file_name().and_then(|n| n.to_str()) {
                         let dest = global_skills_dir.join(format!("{}.md", skill_name));
                         if !dest.exists() {
                             let raw = std::fs::read_to_string(p).unwrap_or_default();
@@ -123,11 +123,10 @@ fn import_skills(global_skills_dir: &std::path::Path) {
                             println!("Imported skill '{}' into global Heald store.", skill_name);
                         }
                     }
-                }
             } 
             // Flat file rules (.mdc or .md)
-            else if ext == "mdc" || ext == "md" {
-                if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+            else if (ext == "mdc" || ext == "md")
+                && let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
                     let upper = stem.to_uppercase();
                     if upper == "AGENTS" || upper == "CLAUDE" || upper == "README" {
                         continue;
@@ -140,7 +139,6 @@ fn import_skills(global_skills_dir: &std::path::Path) {
                         println!("Imported skill/rule '{}' into global Heald store.", stem);
                     }
                 }
-            }
         }
     }
 }
@@ -161,9 +159,9 @@ fn ensure_okf_frontmatter(raw: &str, skill_name: &str) -> String {
         format!("triggers: [{}]\n", triggers.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", "))
     };
     format!(
-        "---\ntype: skill\ntitle: \"{}\"\ndescription: \"{}\"\n{}---\n\n{}",
+        "---\ntype: skill\ntitle: \"{}\"\ndescription: \"Skill: {}\"\n{}---\n\n{}",
         skill_name,
-        format!("Skill: {}", skill_name),
+        skill_name,
         triggers_yaml,
         raw
     )

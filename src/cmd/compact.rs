@@ -158,11 +158,10 @@ pub fn compact_memories(local_base: &Path, _memory_dir: &Path, archive_dir: &Pat
         let file_name = path.file_name().unwrap_or_default();
         let target = archive_dir.join(file_name);
         println!("  - Archiving superseded memory doc '{}' -> {}", title, target.display());
-        if !dry_run {
-            if let Err(e) = fs::rename(path, &target) {
+        if !dry_run
+            && let Err(e) = fs::rename(path, &target) {
                 eprintln!("    Failed to move {}: {}", path.display(), e);
             }
-        }
     }
 }
 
